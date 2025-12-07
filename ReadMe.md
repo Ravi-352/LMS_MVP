@@ -14,6 +14,13 @@ This is an *MVP* implementation intended to be simple, readable, and easy to ext
 
 ## Quickstart (from local for testing) -
 
+### create virtual python environment at backend root and activate it.
+```bash
+cd backend
+python3 -m venv .venv
+source .venv/bin/activate
+```
+
 ### **PostgreSQL**
 
 #### Starting DB -->
@@ -42,7 +49,7 @@ volumes:
 
 ```
 
-Change USER and PASSWORD when you run the above file -
+Change USER and PASSWORD when you run the above file and make it consistent across backend usage-
 ```
 docker-compose -f docker-compose.yml up -d
 ```
@@ -93,18 +100,9 @@ gunicorn app.main:app -k uvicorn.workers.UvicornWorker --workers 2 --bind 0.0.0.
 
 ```
 
-### Spinning up the backend - in local - with docker
-1. Copy env example file:
-   ```bash
-   cp backend/.env.example backend/.env
-```
-Make necessary changes in .env file.
+Backend will be on http://localhost:8000 and OpenAPI docs at http://localhost:8000/docs - to open Swagger page where we can test APIs created in backend.
+<img width="1267" height="978" alt="image" src="https://github.com/user-attachments/assets/dbf05910-7604-4004-b14b-7c7b36054575" />
 
-2. From backend/ run:
-    ```bash
-    docker compose up --build
-```
-Backend will be on http://localhost:8000 and OpenAPI docs at http://localhost:8000/docs
 
 3. Run Frontend:
  ```bash
@@ -189,5 +187,6 @@ WHERE table_name = 'users' AND table_schema = 'public';
 SELECT * FROM alembic_version;
 INSERT INTO alembic_version (version_num) VALUES ('c8915a1ee2e7');
 DELETE FROM alembic_version WHERE version_num = '756f3eadd5ba';
+
 
 
