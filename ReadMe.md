@@ -103,90 +103,63 @@ gunicorn app.main:app -k uvicorn.workers.UvicornWorker --workers 2 --bind 0.0.0.
 Backend will be on http://localhost:8000 and OpenAPI docs at http://localhost:8000/docs - to open Swagger page where we can test APIs created in backend.
 <img width="1267" height="978" alt="image" src="https://github.com/user-attachments/assets/dbf05910-7604-4004-b14b-7c7b36054575" />
 
+### Spinning up frontend -
+#### Creating docker image --
+```
+# Building docker image -
+docker build --build-arg NEXT_PUBLIC_API_BASE=http://localhost:8000/api/v1 -t lms-frontend:1.0 .
 
-3. Run Frontend:
- ```bash
- cd frontend
- npm install
- npm run dev
- ```
+# Run container from the image created above --
+docker run -dt -p 3000:3000 --env-file=.env.local lms-frontend:1.0
+```
+# Accessing frontend
+http://localhost:3000/
 
-Frontend runs on http://localhost:3000.
+Currently, this is new app and no courses available on Home page. We need to 
+1. signup as instructor,
+2. login
+3. create/add courses
+4. Check the same from a public view @ http://localhost:3000
+5. Create a new user as a student, enroll for a course and start learning. After 25% progress see if Feedback button is enabled.
 
-In development, the frontend fetches backend endpoints at http://localhost:8000. If you prefer, update fetch URLs in components to match.
+In development, the frontend fetches backend endpoints at http://localhost:8000/api/v1. If you prefer, update fetch URLs in components to match.
 
-
-## Key flows to test manually
-
-Sign up:
-
-POST /auth/signup with { "email": "you@example.com", "password": "pass" }
-
-List courses:
-
-GET /courses/
-
-Create a course:
-
-POST /courses/ with CourseCreate JSON (use tools like Postman)
-
-Enroll:
-
-POST /enroll/enroll with { "user_id": 1, "course_id": 1 }
-
-Update progress:
-
-POST /enroll/progress?user_id=1&course_id=1&progress=30.0
-
-Submit feedback (works only if progress >=25):
-
-POST /feedback/ with { "user_id": 1, "course_id": 1, "rating": 4, "comment_markdown": "Nice course" }
-
-```bash
-
----
-
-# 5) Quick API testing (curl examples)
-
-**Signup**
-
-curl -X POST http://localhost:8000/auth/signup -H "Content-Type: application/json" \
-  -d '{"email":"test@example.com","password":"secret"}'
-
-
-** Create Course **
-
-curl -X POST http://localhost:8000/courses/ -H "Content-Type: application/json" \
-  -d '{"title":"Intro Python","slug":"intro-python","description":"Demo course","is_udemy":false,"sections":[{"title":"Basics","lessons":[{"title":"Lesson1","type":"video","youtube_url":"https://www.youtube.com/watch?v=dQw4w9WgXcQ"}]}]}'
-
-
-** Enroll **
-curl -X POST http://localhost:8000/enroll/enroll -H "Content-Type: application/json" \
-  -d '{"user_id":1,"course_id":1}'
-
-** Update Progress **
-
-curl -X POST "http://localhost:8000/enroll/progress?user_id=1&course_id=1&progress=30"
-
-** Post Feedback after 25% completion **
-
-curl -X POST http://localhost:8000/feedback/ -H "Content-Type: application/json" \
-  -d '{"user_id":1,"course_id":1,"rating":5,"comment_markdown":"Great course!"}'
+<img width="1817" height="452" alt="image" src="https://github.com/user-attachments/assets/1fc9a9a1-ccce-4901-b202-4de854947db0" />
 
 ```
+# To Stop and delete all the containers running on the image -  "lms-frontend:1.0"
+docker stop $(docker ps -aq --filter "ancestor=lms-frontend:1.0")| xargs docker rm
+
+# To remove image - lms-frontend:1.0
+docker rmi lms-frontend:1.0
+```
+
 
 ################
-connecting to DB - ```psql postgresql://postgres:postgres@localhost:5432/lmsdb```
+Sample commands for DB:
+Connecting to DB - ```psql postgresql://postgres:postgres@localhost:5432/lmsdb```
+
 DB commands - 
+1. CHeck schema present - different tables, fields etc.
 ```SQL
 SELECT column_name, data_type FROM information_schema.columns
 WHERE table_name = 'users' AND table_schema = 'public';
 ```
 
+2. Check alembic versions and update - for manual rectifications.
 ```SQL
 SELECT * FROM alembic_version;
 INSERT INTO alembic_version (version_num) VALUES ('c8915a1ee2e7');
 DELETE FROM alembic_version WHERE version_num = '756f3eadd5ba';
+
+3. Manually searching user by email -
+```SQL
+SELECT * FROM users WHERE email='rk@gmail.com';
+```
+To exit from the DB console -- `q`
+To exit from the DB connection ---> `exit`
+
+
 
 
 
