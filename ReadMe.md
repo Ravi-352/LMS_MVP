@@ -12,12 +12,76 @@ This is an *MVP* implementation intended to be simple, readable, and easy to ext
 - Git (optional)
 - PostgreSQL
 
-## Quickstart without Docker (from local for testing) -
-1. Apply migration on deployment:  
+## Quickstart (from local for testing) -
+
+### **PostgreSQL**
+
+#### Starting DB -->
+Running docker-compose for DB creates and starts postgresql DB
+
+```
+version: '3.8'
+services:
+  backend:
+    build: .
+    env_file: .env
+    ports:
+      - "8000:8000"
+    depends_on:
+      - postgres
+  postgres:
+    image: postgres:15
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: lmsdb
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+volumes:
+  pgdata:
+
+```
+
+Change USER and PASSWORD when you run the above file -
+```
+docker-compose -f docker-compose.yml up -d
+```
+
+#### Schema/Model creation in DB
+We need to first create DB tables and indexes. Usually, we need to use alembic commands and env.py in backend/alembic folder.
+In Alembic, env.py configures how migrations detect your SQLAlchemy models and apply them to the database. To make Alembic automatically generate migrations for tables, indexes, constraints, you must:
+
+✔ Import your Base metadata
+✔ Attach your database engine (from settings)
+✔ Enable autogenerate feature
+
+Command to generate initial/base tables and indexes --.
+```bash
+alembic revision --autogenerate -m "initial migration"
+```
+A db schema version file gets generated in alembic/versions folder. If the tables in the file seems okay then we can commit it directly to DB using below command -->
 ```bash
 alembic upgrade head
 
 ```
+**But, above commands didn't work in this case. So we made a work around. **
+#when alembic autogenerate not able to generate version file that has all models/tables, can use the script to manually generate DDL (Data Definition Language) -->
+
+```bash 
+python3 generate_ddl.py > initial_schema.sql
+```
+
+**Wrap generated raw SQL into a new revision file inside alembic/versions using op.execute() under def upgrade(): function**
+
+```bash
+alembic upgrade head
+
+```
+THis commits all the tables and indexes to DB.
+
+### Spinning up the backend - in local - without docker
+From backend root folder -->
+
 2. Then run your app with:  
 ```bash
 uvicorn app.main:app --host 0.0.0.0 --port 8000
@@ -29,11 +93,12 @@ gunicorn app.main:app -k uvicorn.workers.UvicornWorker --workers 2 --bind 0.0.0.
 
 ```
 
-## Quickstart with Docker (recommended)
-1. Copy env file:
+### Spinning up the backend - in local - with docker
+1. Copy env example file:
    ```bash
    cp backend/.env.example backend/.env
 ```
+Make necessary changes in .env file.
 
 2. From backend/ run:
     ```bash
@@ -124,4 +189,5 @@ WHERE table_name = 'users' AND table_schema = 'public';
 SELECT * FROM alembic_version;
 INSERT INTO alembic_version (version_num) VALUES ('c8915a1ee2e7');
 DELETE FROM alembic_version WHERE version_num = '756f3eadd5ba';
+
 
