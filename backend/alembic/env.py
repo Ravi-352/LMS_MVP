@@ -21,6 +21,7 @@ print(f"DEBUG: Tables found by Base.metadata: {Base.metadata.tables.keys()}")
 # Alembic Config
 
 config = context.config
+# Override sqlalchemy.url from alembic.ini using env setting
 config.set_main_option("sqlalchemy.url", settings.DATABASE_URL)
 
 
@@ -68,6 +69,8 @@ def run_migrations_online():
             sqlalchemy_enable_dependent_tables=True, 
             # Tells Alembic to check the 'public' schema explicitly
             include_schemas=True,
+            compare_type=True,
+            compare_server_default=True,
             version_table_schema=SCHEMA_NAME,
             # =======================================================
         )
