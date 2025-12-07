@@ -1,0 +1,28 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+
+/* Tailwind base + some quick helpers and Udemy-like purple. */
+/* Base resets & custom utility */
+:root {
+  --primary: #7c3aed;
+}
+body {
+  @apply bg-gray-50 text-gray-900 antialiased;
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+}
+
+/* container */
+.container { @apply max-w-6xl mx-auto px-4; }
+
+/* small card */
+.card {
+  @apply bg-white shadow-sm rounded-lg p-4;
+}
+
+/* subtle link */
+a.link { @apply text-primary-500 hover:underline; }
+
+/* responsive video helper */
+.aspect-video { aspect-ratio: 16 / 9; }

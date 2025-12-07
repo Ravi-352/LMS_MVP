@@ -1,0 +1,19 @@
+version: '3.8'
+services:
+  backend:
+    build: .
+    env_file: .env
+    ports:
+      - "8000:8000"
+    depends_on:
+      - postgres
+  postgres:
+    image: postgres:15
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: lmsdb
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+volumes:
+  pgdata:

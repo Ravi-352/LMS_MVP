@@ -1,0 +1,52 @@
+# ---- Global ----
+*.log
+.DS_Store
+*.sqlite3
+*.db
+.env
+.env.*    # Covers .env.local, .env.production, etc.
+
+# ---- Python Backend (FastAPI) ----
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.pkl
+.pytest_cache/
+.venv/
+env/
+venv/
+instance/
+dist/
+build/
+coverage/
+htmlcov/
+.mypy_cache/
+.cache/
+.idea/
+.vscode/
+
+# Byte-compiled / optimized / DLL files
+*.egg-info/
+.eggs/
+
+# ---- Node / Next.js Frontend ----
+node_modules/
+.next/
+out/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnp/
+.pnp.js
+
+# Next.js build
+.next/
+out/
+# Static export manifest
+export-*
+
+# Production
+prod/
+production/
+*.pem
