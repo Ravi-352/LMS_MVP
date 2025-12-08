@@ -24,8 +24,17 @@ export default function LoginPage() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data?.detail || "Login failed");
+      if (res.ok) {
+        const profile = await apiFetch("/auth/me");
+        console.log("Logged in user profile:", profile);
+        if (profile.is_educator) {
+          router.push("/instructor/dashboard");
+        } else {
+          router.push("/student/dashboard");
+        }
+      }
       // backend set cookies (access_token HttpOnly + csrf_token)
-      window.location.href = "/";
+      //window.location.href = "/";
     } catch (err) {
       alert(err.message || "Login failed");
     } finally {

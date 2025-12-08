@@ -72,6 +72,9 @@ def run_migrations_online():
             compare_type=True,
             compare_server_default=True,
             version_table_schema=SCHEMA_NAME,
+            include_object=lambda obj, name, type_, reflected, compare_to:
+                not (type_ == "table" and name == "alembic_version"),
+            render_as_batch=True
             # =======================================================
         )
         with context.begin_transaction():

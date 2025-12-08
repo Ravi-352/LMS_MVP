@@ -1,6 +1,9 @@
 
 import '@/styles/globals.css';
 import SWRProvider from '@/components/SWRProvider'; // Import the provider
+import Layout from "@/components/Layout";
+//import { Toaster } from "@/components/ui/toaster"; // for notifications
+
 
 export const metadata = {
   title: 'LMS App',
@@ -12,7 +15,9 @@ export default function RootLayout({ children }) {
     <html lang="en">
       <body>
         <SWRProvider> {/* <-- Wrap children with the SWR Provider */}
-          {children}
+          <Layout>
+            {children}
+          </Layout>
         </SWRProvider>
       </body>
     </html>

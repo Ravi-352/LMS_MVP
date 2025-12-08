@@ -8,6 +8,25 @@ For state-changing requests we add X-CSRF-Token header from cookie so backend ca
 We do NOT attach Authorization header anymore (cookie-based flow).
 */
 
+export async function apiFetchPublic(endpoint, options = {}) {
+  const url = endpoint.startsWith("/")
+    ? `${API_BASE}${endpoint}`
+    : `${API_BASE}/${endpoint}`;
+
+  const res = await fetch(url, {
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...(options.headers || {}),
+    },
+    credentials: "include",
+  });
+
+  const data = await parseJSONSafely(res);
+  return data; // ← do NOT redirect on 401
+}
+
+
 
 function getCookie(name) {
   if (typeof document === "undefined") return null;
@@ -23,10 +42,11 @@ async function parseJSONSafely(res) {
   try { return JSON.parse(text); } catch { return text; }
 }
 
+
 export async function apiFetch(endpoint, options = {}) {
   const method = (options.method || "GET").toUpperCase();
   const headers = {
-    "Content-Type": "application/json",
+    "Content-Type": "application/json", 
     ...(options.headers || {}),
   };
 

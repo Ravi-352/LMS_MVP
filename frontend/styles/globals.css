@@ -26,3 +26,10 @@ a.link { @apply text-primary-500 hover:underline; }
 
 /* responsive video helper */
 .aspect-video { aspect-ratio: 16 / 9; }
+
+.input {
+  @apply border p-2 rounded;
+}
+.btn-primary {
+  @apply px-4 py-2 bg-primary-500 text-white rounded;
+}

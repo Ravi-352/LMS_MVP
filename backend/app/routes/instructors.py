@@ -50,6 +50,74 @@ def update_course(course_id: int, course_in: schemas.CourseUpdate, current_user:
     # return nested detail (APEX)
     return crud.get_course_by_id(db, course_id)
 
+@router.get("/courses/{course_id}", response_model=schemas.CourseDetailOut)
+def get_course_detail(course_id: int,
+                      current_user: models.User = Depends(require_role("instructor")),
+                      db: Session = Depends(get_db)):
+    course = crud.get_course_by_id(db, course_id)
+    if not course:
+        raise HTTPException(404, "Course not found")
+    if course.educator_id != current_user.id:
+        raise HTTPException(403, "Not allowed")
+    return course
+
+@router.get("/courses/{course_id}/lessons", response_model=list[schemas.LessonOut])
+def list_course_lessons(course_id: int,
+                        current_user: models.User = Depends(require_role("instructor")),
+                        db: Session = Depends(get_db)):
+    course = crud.get_course_by_id(db, course_id)
+    if not course:
+        raise HTTPException(status_code=404, detail="Course not found")
+    if course.educator_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Not allowed")
+    lessons = crud.list_lessons_for_course(db, course_id)
+    return lessons
+
+@router.post("/courses/{course_id}/lessons", response_model=schemas.LessonOut, status_code=status.HTTP_201_CREATED)
+def create_course_lesson(course_id: int, payload: schemas.LessonCreate,
+                         current_user: models.User = Depends(require_role("instructor")),
+                         db: Session = Depends(get_db),
+                         _csrf=Depends(verify_csrf)):
+    """
+    payload example:
+    {
+      "title": "Intro",
+      "type": "video",   # video|pdf|article
+      "youtube_url": "...",
+      "pdf_url": "...",
+      "order": 0,
+      "assessments": [ ... optional assessments dicts ... ]
+    }
+    """
+    course = crud.get_course_by_id(db, course_id)
+    if not course:
+        raise HTTPException(status_code=404, detail="Course not found")
+    if course.educator_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Not allowed")
+
+    lesson = crud.create_lesson_simple(db, course_id, payload)
+    return lesson
+
+@router.delete("/lessons/{lesson_id}", response_model=dict)
+def delete_lesson(lesson_id: int,
+                  current_user: models.User = Depends(require_role("instructor")),
+                  db: Session = Depends(get_db),
+                  _csrf=Depends(verify_csrf)):
+    # Ensure the instructor owns the course for this lesson
+    lesson = db.query(models.Lesson).filter_by(id=lesson_id).first()
+    if not lesson:
+        raise HTTPException(status_code=404, detail="Lesson not found")
+    # verify instructor owns the parent course
+    section = db.query(models.Section).filter_by(id=lesson.section_id).first()
+    if not section:
+        raise HTTPException(status_code=404, detail="Parent section not found")
+    course = db.query(models.Course).filter_by(id=section.course_id).first()
+    if not course or course.educator_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Not allowed")
+    # perform safe delete using crud helper
+    crud.delete_lesson_simple(db, lesson_id)
+    return {"ok": True}
+
 # add endpoints to upload content, add assessments etc. for instructor
 @router.post("/courses/{course_id}/assessments", response_model=dict)
 def instructor_create_assessment(course_id: int, payload: dict, current_user: models.User = Depends(require_role("instructor")), db: Session = Depends(get_db), _csrf=Depends(verify_csrf)):

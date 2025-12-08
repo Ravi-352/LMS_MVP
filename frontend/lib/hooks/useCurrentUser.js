@@ -12,8 +12,8 @@ export function useCurrentUser() {
 
   return {
     user: data || null,
-    isLoading,
+    loading: isLoading,
     mutateUser: mutate,
-    isError: error,
+    error: error,
   };
 }

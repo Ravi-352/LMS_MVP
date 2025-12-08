@@ -65,7 +65,7 @@ export default function Layout({ children }) {
       <main className="container py-6">{children}</main>
 
       <footer className="container text-center text-sm text-gray-500 py-6">
-        © {new Date().getFullYear()} EduTech — Built with ❤️
+        © {new Date().getFullYear()} All Rights Reserved. EduTech — Built with ❤️
       </footer>
     </div>
   );

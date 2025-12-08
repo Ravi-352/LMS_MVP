@@ -25,10 +25,12 @@ class User(Base):
     enrollments = relationship("Enrollment", back_populates="user")
     feedbacks = relationship("CourseFeedback", back_populates="user")
     assessment_attempts = relationship("AssessmentAttempt", back_populates="user")
+    student_lessons = relationship("StudentLesson", back_populates="user", cascade="all, delete-orphan")
 
 class Course(Base):
     __tablename__ = "courses"
     id = Column(Integer, primary_key=True, index=True)
+    educator_id = Column(Integer, ForeignKey("users.id"), nullable=False) # NEW COLUMN
     title = Column(String, nullable=False)
     slug = Column(String, unique=True, nullable=False, index=True)
     description = Column(Text, nullable=True)
@@ -37,6 +39,7 @@ class Course(Base):
     created_at = Column(DateTime(timezone=True), default=datetime.now(timezone.utc))
 
     # sections = relationship("Section", back_populates="course")
+    educator = relationship("User", backref="courses")  # NEW RELATION
     enrollments = relationship("Enrollment", back_populates="course")
     feedbacks = relationship("CourseFeedback", back_populates="course")
     sections = relationship("Section", back_populates="course", cascade="all, delete-orphan", lazy="selectin")
@@ -65,6 +68,7 @@ class Lesson(Base):
 
     section = relationship("Section", back_populates="lessons")
     assessments = relationship("Assessment", back_populates="lesson", cascade="all, delete-orphan", lazy="selectin")
+    student_lessons = relationship("StudentLesson", back_populates="lesson", cascade="all, delete-orphan")
 
 class Enrollment(Base):
     __tablename__ = "enrollments"

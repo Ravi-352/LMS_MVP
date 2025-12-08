@@ -232,7 +232,7 @@ def calculate_and_update_progress(db: Session, user_id: int, course_id: int):
     if not enrollment:
         # in production we enforce enrollment; here ensure update only if exists
         raise HTTPException(status_code=403, detail="Must enroll before accessing lessons")
-        return progress
+        
     else:
         enrollment.progress_percent = progress
         if progress >= 100:
@@ -454,6 +454,96 @@ def update_course_full(db: Session, course_id: int, course_in: dict, educator_id
     db.refresh(course)
     return get_course_by_id(db, course_id)  # returns joined load nested object
 
+def create_default_section(db: Session, course_id: int, title: str = "Section 1"):
+    """Create and return a default/first section for course if none exists."""
+    sec = models.Section(course_id=course_id, title=title, order=0)
+    db.add(sec)
+    db.flush()
+    return sec
+
+def list_lessons_for_course(db: Session, course_id: int):
+    """Return lessons belonging to a course ordered by section.order then lesson.order."""
+    return (
+        db.query(models.Lesson)
+          .join(models.Section, models.Lesson.section_id == models.Section.id)
+          .filter(models.Section.course_id == course_id)
+          .order_by(models.Section.order, models.Lesson.order)
+          .all()
+    )
+
+def create_lesson_simple(db: Session, course_id: int, lesson_in: dict):
+    """
+    Create a lesson in first section of course (create section if none exists).
+    lesson_in: dict with keys { title, type, youtube_url, pdf_url, order (optional), assessments (optional) }
+    Returns the created Lesson ORM object.
+    """
+    # find a section
+    section = db.query(models.Section).filter_by(course_id=course_id).order_by(models.Section.order).first()
+    if not section:
+        section = create_default_section(db, course_id)
+
+    lesson = models.Lesson(
+        section_id=section.id,
+        title=lesson_in.get("title"),
+        type=lesson_in.get("type", "video"),
+        youtube_url=lesson_in.get("youtube_url"),
+        pdf_url=lesson_in.get("pdf_url"),
+        order=lesson_in.get("order", 0)
+    )
+    db.add(lesson)
+    db.flush()
+
+    # Optional: create assessments if provided (use your existing _upsert_assessment or create_assessment)
+    for ass_in in lesson_in.get("assessments", []):
+        # Use your existing upsert helper if it is accessible here
+        # If the helper is private (prefixed with _), you can call it:
+        ass = _upsert_assessment(db, lesson, ass_in)  # reuse existing helper
+        # _upsert_assessment flushes and returns the assessment
+
+    db.flush()
+    return lesson
+
+def delete_lesson_simple(db: Session, lesson_id: int):
+    """
+    Delete a lesson and cascade-clean related entities:
+    - StudentLesson (progress)
+    - AssessmentAttempt and StudentAnswer
+    - Choice and Assessment
+    """
+    # delete student lesson completions
+    db.query(models.StudentLesson).filter_by(lesson_id=lesson_id).delete(synchronize_session=False)
+
+    # gather associated assessment ids
+    ass_ids = [a.id for a in db.query(models.Assessment).filter_by(lesson_id=lesson_id).all()]
+
+    if ass_ids:
+        # student answers referencing choices/attempts
+        # delete StudentAnswer rows referencing attempts for safety
+        # first delete answers that reference attempts (attempts will be deleted next)
+        # note: your existing code sometimes did StudentAnswer.filter(attempt_id==aid) - consistent approach:
+        db.query(models.StudentAnswer).filter(models.StudentAnswer.attempt_id.in_(
+            db.query(models.AssessmentAttempt.id).filter(models.AssessmentAttempt.assessment_id.in_(ass_ids))
+        )).delete(synchronize_session=False)
+
+        # delete AssessmentAttempt rows
+        db.query(models.AssessmentAttempt).filter(models.AssessmentAttempt.assessment_id.in_(ass_ids)).delete(synchronize_session=False)
+
+        # delete StudentAnswer rows that reference choice ids (if any remain)
+        db.query(models.StudentAnswer).filter(models.StudentAnswer.choice_id.in_(
+            db.query(models.Choice.id).filter(models.Choice.assessment_id.in_(ass_ids))
+        )).delete(synchronize_session=False)
+
+        # delete choice rows
+        db.query(models.Choice).filter(models.Choice.assessment_id.in_(ass_ids)).delete(synchronize_session=False)
+
+        # delete assessment rows
+        db.query(models.Assessment).filter(models.Assessment.id.in_(ass_ids)).delete(synchronize_session=False)
+
+    # finally delete lesson
+    db.query(models.Lesson).filter_by(id=lesson_id).delete(synchronize_session=False)
+
+    db.flush()
+    return True
 
 # Feedback
 

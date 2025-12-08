@@ -36,10 +36,10 @@ export default function CoursePage({ params }) {
     load();
   }, [slug]);
 
-  if (!course) return <Layout><div>Loading...</div></Layout>;
+  if (!course) return <div>Loading...</div>;
 
   return (
-    <Layout>
+    <section>
       <div className="grid md:grid-cols-5 gap-6">
         <div className="md:col-span-3">
           <div className="mb-4 flex items-center justify-between">
@@ -62,6 +62,6 @@ export default function CoursePage({ params }) {
           <SidebarLessons course={course} selectedLessonId={selectedLesson?.id} onSelect={setSelectedLesson} isEnrolled={isEnrolled} />
         </div>
       </div>
-    </Layout>
+    </section>
   );
 }

@@ -5,8 +5,9 @@
 import useSWR from 'swr'
 // NOTE: apiFetch is no longer needed here if it's set as the default
 // fetcher in the <SWRProvider> (which is the recommended fix).
-// import { apiFetch } from '@/lib/apiClient'
-import CourseList from '@/components/CourseList'
+import { apiFetchPublic } from '@/lib/apiClient'
+import { apiFetch } from '@/lib/apiClient'
+//import CourseList from '@/components/CourseList'
 import Layout from "@/components/Layout";
 import CourseCard from "@/components/CourseCard";
 
@@ -20,25 +21,25 @@ export default function Home() {
     data: courses, 
     error, 
     isLoading 
-  } = useSWR("/public/courses");
+  } = useSWR("/public/courses", apiFetchPublic);
 
   // Handle loading state
   if (isLoading) {
     return (
-      <Layout>
+      
         <div className="text-center py-10">Loading courses...</div>
-      </Layout>
+      
     );
   }
 
   // Handle error state
   if (error) {
     return (
-      <Layout>
+      
         <div className="text-red-500 py-10">
           Failed to load courses. Please check the backend API.
         </div>
-      </Layout>
+      
     );
   }
 
@@ -46,13 +47,22 @@ export default function Home() {
   // so provide a fallback empty array if needed, though SWR is smart)
   const courseList = courses || [];
 
+  if (!courseList.length) {
+    return (
+      <section className="max-w-5xl mx-auto py-10 text-center">
+        <h1 className="text-xl font-bold mb-4">Courses</h1>
+        <p>No courses available right now. Please check again later.</p>
+      </section>
+    );
+  }
+
   return (
-    <Layout>
+    <section>
       <h1 className="text-2xl font-bold mb-4">All Courses</h1>
       <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
         {courseList.map(c => <CourseCard key={c.id} course={c} />)}
       </div>
-    </Layout>
+    </section>
   );
 }
 

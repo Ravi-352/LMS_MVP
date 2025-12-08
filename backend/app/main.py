@@ -26,6 +26,7 @@ def create_app():
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     #allow_methods=["*"],
     allow_headers=["Authorization", "Content-Type", "Accept", "X-CSRF-Token", "X-Requested-With", "Cookie"],
+    expose_headers=["Set-Cookie"],
     )
 
     # Create DB tables automatically in dev (for MVP simplicity)
