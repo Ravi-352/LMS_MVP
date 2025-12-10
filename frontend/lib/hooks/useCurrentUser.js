@@ -12,7 +12,7 @@ export function useCurrentUser() {
 
   return {
     user: data || null,
-    loading: isLoading,
+    isLoading: isLoading,
     mutateUser: mutate,
     error: error,
   };

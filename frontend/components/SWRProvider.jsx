@@ -5,7 +5,7 @@
 import React from 'react';
 import { SWRConfig } from 'swr';
 // The path to your apiClient (assuming it contains the exported function apiFetch)
-import { apiFetchPublic } from '@/lib/apiClient';
+import { swrFetch } from '@/lib/apiClient';
 
 export default function SWRProvider({ children }) {
   return (
@@ -14,7 +14,7 @@ export default function SWRProvider({ children }) {
       value={{
         // Define the default fetcher function here.
         // All useSWR calls without a specific fetcher will use apiFetch.
-        fetcher: apiFetchPublic,
+        fetcher: swrFetch,
 
         // Optional: Configure common options like automatic refetch behavior
         revalidateOnFocus: true, 

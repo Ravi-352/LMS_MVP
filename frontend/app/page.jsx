@@ -1,5 +1,3 @@
-// frontend/app/page.jsx
-
 "use client"; // Retain this directive
 
 import useSWR from 'swr'

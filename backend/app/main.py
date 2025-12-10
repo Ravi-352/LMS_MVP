@@ -9,7 +9,7 @@ from app.db.sessions import engine, Base
 # Routers:
 from app.routes import auth
 from app.routes.students import router as students_router
-from app.routes.instructors import router as instructors_router
+from app.routes.instructor import router as instructor_router
 from app.routes.public import router as public_router
 from app.routes.logs import router as logs_router
 #feedback
@@ -45,7 +45,7 @@ def create_app():
     app.include_router(students_router, prefix=prefix + "/students", tags=["students"])
 
     # Instructor role protected routes
-    app.include_router(instructors_router, prefix=prefix + "/instructors", tags=["instructors"])
+    app.include_router(instructor_router, prefix=prefix + "/instructor", tags=["instructor"])
 
     # Logging routes (client to backend logs)
     app.include_router(logs_router, prefix=prefix + "/logs", tags=["logs"])

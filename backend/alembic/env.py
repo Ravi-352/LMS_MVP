@@ -12,7 +12,7 @@ from app.core.config import settings
 #from app.db.sessions import Base
 from app.db.base import Base
 #from app import models  # Import models so Alembic can autogenerate migrations
-import app.models  # Import models so Alembic can autogenerate migrations
+from app.models import User, Course, Section, Lesson, Enrollment, Assessment, Choice, AssessmentAttempt, StudentAnswer, CourseFeedback, StudentLesson  # Import models so Alembic can autogenerate migrations
 
 # >>> ADD THIS CHECK:
 print(f"DEBUG: Tables found by Base.metadata: {Base.metadata.tables.keys()}")

@@ -6,17 +6,35 @@ import { usePathname } from "next/navigation";
 
 
 // inside component:
-const pathname = usePathname();
-const isProtected =
-  pathname.startsWith("/student") ||
-  pathname.startsWith("/instructor");
+
 
 
 
 export default function Layout({ children }) {
+  const pathname = usePathname();
+  const isProtected =
+    pathname.startsWith("/student") ||
+    pathname.startsWith("/instructor");
+  //const { user, isLoading } = isProtected ? useCurrentUser() : { user: null, isLoading: false };
+  const { user, isLoading } = useCurrentUser();
+
+  // Very important:
+  if (isProtected && isLoading) {
+    return <div className="p-6 text-center">Loading...</div>;
+  }
+
+  //if (isProtected && !isLoading && !user && pathname !== "/login") {
+  if (isProtected && !isLoading && !user) {
+  // redirect to login
+    if (typeof window !== "undefined") {
+      window.location.href = "/login";
+      }
+    return null;
+  }
+  
+  //const finalUser = isProtected ? user : null;
   const [open, setOpen] = useState(false);
-  const { user, isLoading } = isProtected ? useCurrentUser() : { user: null, isLoading: false };
-  // const { user, isLoading } = useCurrentUser();
+
   return (
     <div>
       <header className="bg-white border-b shadow-sm sticky top-0 z-50">
@@ -54,7 +72,7 @@ export default function Layout({ children }) {
             <Link href="/">Courses</Link>
             {user ? (
               <>
-                {user.is_educator ? (
+                {finaluser.is_educator ? (
                   <Link href="/instructor/dashboard" className="text-sm">Instructor</Link>
                 ) : (
                   <Link href="/student/dashboard" className="text-sm">Student</Link>

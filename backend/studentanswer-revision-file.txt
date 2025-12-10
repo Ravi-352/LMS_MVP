@@ -1,0 +1,2 @@
+DEBUG: Tables found by Base.metadata: dict_keys(['users', 'courses', 'sections', 'lessons', 'enrollments', 'assessments', 'choices', 'assessment_attempts', 'student_answers', 'course_feedbacks', 'student_lessons'])
+  FAILED: Target database is not up to date.

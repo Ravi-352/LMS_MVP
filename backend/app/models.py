@@ -158,6 +158,6 @@ class StudentLesson(Base):
     completed_at = Column(DateTime(timezone=True), default=datetime.now(timezone.utc))
 
     # Optional relationships if you want easy access:
-    user = relationship("User", backref="student_lessons")
-    lesson = relationship("Lesson", backref="student_lessons")
+    user = relationship("User", back_populates="student_lessons")
+    lesson = relationship("Lesson", back_populates="student_lessons")
 

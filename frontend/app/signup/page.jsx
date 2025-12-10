@@ -1,5 +1,5 @@
 "use client";
-import { apiFetch } from "@/lib/apiClient";
+import { apiFetch, apiFetchPublic } from "@/lib/apiClient";
 import { useState } from "react";
 
 export default function SignupPage() {
@@ -21,7 +21,8 @@ export default function SignupPage() {
     setLoading(true);
 
     try {
-      const res = await apiFetch(`${process.env.NEXT_PUBLIC_API_BASE}/auth/signup`, {
+      //const res = await apiFetchPublic(`${process.env.NEXT_PUBLIC_API_BASE}/auth/signup`, {
+      const res = await apiFetchPublic(`/auth/signup`, {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },

@@ -1,8 +1,14 @@
 "use client";
 import { apiFetch } from "@/lib/apiClient";
 import { useState } from "react";
+import { useRouter } from "next/navigation";
+
+
+
+
 
 export default function LoginPage() {
+  const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -13,7 +19,8 @@ export default function LoginPage() {
     setLoading(true);
     setErrorMessage("");
     try {
-      const res = await apiFetch(`${process.env.NEXT_PUBLIC_API_BASE}/auth/token`, {
+      //const res = await apiFetch(`${process.env.NEXT_PUBLIC_API_BASE}/auth/token`, {
+      const res = await apiFetch(`/auth/token`, {
         method: "POST",
         credentials: "include", // allow cookies to be set by backend
         headers: { "Content-Type": "application/json" },
@@ -23,20 +30,26 @@ export default function LoginPage() {
         body: JSON.stringify({ email, password })
         //body: new URLSearchParams({ email, password })
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data?.detail || "Login failed");
-      if (res.ok) {
-        const profile = await apiFetch("/auth/me");
-        console.log("Logged in user profile:", profile);
-        if (profile.is_educator) {
-          router.push("/instructor/dashboard");
-        } else {
-          router.push("/student/dashboard");
-        }
+      //const data = await res.json();
+      const data = res;
+
+      // If we reach here → login succeeded (apiFetch throws on error)
+      console.log("Login success:", data);
+      //if (!res.ok) throw new Error(data?.detail || "Login failed");
+      //if (res.ok) {
+      const profile = await apiFetch("/auth/me");
+      console.log("Logged in user profile:", profile);
+      if (profile.is_educator) {
+        router.push("/instructor/dashboard");
+      } else {
+        router.push("/student/dashboard");
       }
+      //}
       // backend set cookies (access_token HttpOnly + csrf_token)
       //window.location.href = "/";
     } catch (err) {
+      console.error("Login error:", err);
+      setErrorMessage(err.message || "Login failed");
       alert(err.message || "Login failed");
     } finally {
       setLoading(false);
