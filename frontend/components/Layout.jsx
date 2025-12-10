@@ -2,10 +2,21 @@
 import Link from "next/link";
 import React, { useState } from "react";
 import { useCurrentUser } from "@/lib/hooks/useCurrentUser";
+import { usePathname } from "next/navigation";
+
+
+// inside component:
+const pathname = usePathname();
+const isProtected =
+  pathname.startsWith("/student") ||
+  pathname.startsWith("/instructor");
+
+
 
 export default function Layout({ children }) {
   const [open, setOpen] = useState(false);
-  const { user, isLoading } = useCurrentUser();
+  const { user, isLoading } = isProtected ? useCurrentUser() : { user: null, isLoading: false };
+  // const { user, isLoading } = useCurrentUser();
   return (
     <div>
       <header className="bg-white border-b shadow-sm sticky top-0 z-50">

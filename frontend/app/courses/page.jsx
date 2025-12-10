@@ -1,9 +1,10 @@
 "use client";
 import useSWR from "swr";
 import Link from "next/link";
+import { apiFetchPublic } from "@/lib/apiClient";
 
 export default function CoursesPage() {
-  const { data: courses, error } = useSWR("/public/courses");
+  const { data: courses, error } = useSWR("/public/courses", apiFetchPublic);
 
   if (!courses && !error) return <p className="p-4">Loading...</p>;
   if (error) return <p className="p-4 text-red-500">Failed to load courses</p>;

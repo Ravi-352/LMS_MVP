@@ -1,4 +1,5 @@
 "use client";
+import { apiFetch } from "@/lib/apiClient";
 import { useState } from "react";
 
 export default function LoginPage() {
@@ -12,7 +13,7 @@ export default function LoginPage() {
     setLoading(true);
     setErrorMessage("");
     try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_BASE}/auth/token`, {
+      const res = await apiFetch(`${process.env.NEXT_PUBLIC_API_BASE}/auth/token`, {
         method: "POST",
         credentials: "include", // allow cookies to be set by backend
         headers: { "Content-Type": "application/json" },
