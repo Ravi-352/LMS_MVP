@@ -5,10 +5,10 @@ import Link from "next/link";
 import Layout from "@/components/Layout";
 
 export default function InstructorCoursesPage() {
-  const { data: courses, isLoading } = useSWR("/instructors/me/courses");
+  const { data: courses, isLoading } = useSWR("/instructor/me/courses");
 
   return (
-    <Layout>
+    <section className="p-6 max-w-5xl mx-auto">
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-xl font-bold">My Courses</h1>
         <Link href="/instructor/courses/new">
@@ -27,7 +27,7 @@ export default function InstructorCoursesPage() {
               <h3 className="text-lg font-semibold">{course.title}</h3>
               <p className="text-sm text-gray-600">{course.description}</p>
               <Link href={`/instructor/courses/${course.id}`}>
-                <button className="mt-3 text-blue-600 hover:underline">
+                <button className="mt-3 btn-primary hover:underline">
                   Manage
                 </button>
               </Link>
@@ -37,6 +37,6 @@ export default function InstructorCoursesPage() {
       ) : (
         <p>No courses yet. Click **New Course** to start!</p>
       )}
-    </Layout>
+    </section>
   );
 }

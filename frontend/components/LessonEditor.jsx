@@ -12,7 +12,7 @@ export default function LessonEditor({ lesson = {}, onSave, onCancel }) {
     youtube_url: lesson.youtube_url ?? "",
     pdf_url: lesson.pdf_url ?? "",
     order: lesson.order ?? 0,
-    assessments: lesson.assessments ?? []
+    assessments: lesson.assessments ? [...lesson.assessments] : []
   });
 
   function setField(k, v) {
@@ -58,6 +58,7 @@ export default function LessonEditor({ lesson = {}, onSave, onCancel }) {
       alert("YouTube URL required for video lessons");
       return;
     }
+    if (draft.type === "pdf" && !draft.pdf_url) return alert("PDF URL required");
     onSave && onSave(draft);
   }
 

@@ -1,6 +1,7 @@
 # backend/app/routes/students.py
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
+from sqlalchemy.exc import IntegrityError
 from app.db.sessions import get_db
 from app.core.auth import require_role, get_current_user, verify_csrf
 from app import crud, schemas, models
@@ -8,17 +9,35 @@ from app.core.logging_config import logger
 from typing import List
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
 
 # Enroll
 @router.post("/enroll", response_model=schemas.EnrollmentOut)
-def enroll(enr: schemas.EnrollmentCreate, current_user: models.User = Depends(require_role("student")), db: Session = Depends(get_db), _csrf=Depends(verify_csrf)):
+#def enroll(enr: schemas.EnrollmentCreate, current_user: models.User = Depends(require_role("student")), db: Session = Depends(get_db), _csrf=Depends(verify_csrf)):
+def enroll(course_id: int, current_user: models.User = Depends(require_role("student")), db: Session = Depends(get_db), _csrf=Depends(verify_csrf)):
     # ignore e.user_id from client; use current_user
+    course = crud.get_course_by_id(db, course_id)
+    if not course:
+        raise HTTPException(status_code=404, detail="Course not found")
+    
+    # 🔮 payment-ready gate (inactive for now)
+    if course.price_cents > 0:
+        payment = crud.get_successful_payment(
+            db,
+            user_id=current_user.id,
+            course_id=course_id
+        )
+    if not payment:
+        raise HTTPException(status_code=402, detail="Payment required")
+    
     try:
-        enrollment = crud.enroll_user(db, current_user.id, enr.course_id)
-        logger.info(f"User {current_user.id} enrolled in course {enr.course_id}")
+        
+        enrollment = crud.enroll_user(db, current_user.id, course_id)
+        logger.info(f"User {current_user.id} enrolled in course {course_id}")    
         return enrollment
+    
     except IntegrityError:
-        logger.warning(f"Duplicate enrollment for user {current_user.id} in course {enr.course_id}")
+        logger.warning(f"Duplicate enrollment for user {current_user.id} in course {course_id}")
         raise HTTPException(status_code=409, detail="You are already enrolled in this course.")
 
     except HTTPException as e:
@@ -28,7 +47,7 @@ def enroll(enr: schemas.EnrollmentCreate, current_user: models.User = Depends(re
 
     except Exception as e:
         # Unexpected error => Debugging required
-        logger.error(f"Unknown error enrolling user {current_user.id} in course {enr.course_id}: {str(e)}")
+        logger.error(f"Unknown error enrolling user {current_user.id} in course {course_id}: {str(e)}")
         raise HTTPException(status_code=500, detail="Unexpected server error")
 
 # Get course detail (with lessons and assessments, hiding correct answers)
@@ -88,6 +107,16 @@ def submit_assessment(assessment_id: int, payload: dict, current_user: models.Us
       ]
     }
     """
+    
+    # in future when we want to free audit option for courses but need payment for assessments, we can check enrollment + payment status here; commented for now.
+    #assessment = crud.get_assessment(db, assessment_id)
+    #if not assessment:
+    #    raise HTTPException(status_code=404, detail="Assessment not found")
+    #course_id = crud.get_course_id_for_assessment(db, assessment_id)
+
+    #if not crud.is_user_enrolled(db, current_user.id, course_id):
+    #    raise HTTPException(403, "Enroll to attempt assessment")
+
     answers = payload.get("answers", [])
     # create attempt
     attempt = crud.create_assessment_attempt(db, current_user.id, assessment_id)

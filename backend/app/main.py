@@ -12,6 +12,8 @@ from app.routes.students import router as students_router
 from app.routes.instructor import router as instructor_router
 from app.routes.public import router as public_router
 from app.routes.logs import router as logs_router
+from app.routes.enrollment import router as enrollment_router
+from app.routes.feedback import router as feedback_router
 #feedback
 
 def create_app():
@@ -52,9 +54,13 @@ def create_app():
 
 
     #app.include_router(courses.router, prefix="/api/v1/courses", tags=["courses"])
-    #app.include_router(enrollment.router, prefix="/api/v1/enroll", tags=["enrollment"])
+    app.include_router(enrollment_router, prefix="/api/v1/enrollment", tags=["enrollment"])
     #app.include_router(assessments.router, prefix="/api/v1/assessments", tags=["assessments"])
-    #app.include_router(feedback.router, prefix="/api/v1/feedback", tags=["feedback"])
+    app.include_router(feedback_router, prefix="/api/v1/feedback", tags=["feedback"])
+
+    # For Future extension
+    # app.include_router(admin_router, prefix="/admin", tags=["admin"])
+    # app.include_router(payments_router, prefix="/payments", tags=["payments"])
 
 
     @app.get("/healthz")

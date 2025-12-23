@@ -1,4 +1,4 @@
-from pydantic import BaseModel, EmailStr, SecretStr
+from pydantic import BaseModel, EmailStr, SecretStr, Field
 from typing import Optional, List
 from datetime import datetime
 
@@ -33,7 +33,19 @@ class AssessmentCreate(BaseModel):
     image_url: Optional[str] = None
     max_score: Optional[int] = 1
     explanation: Optional[str] = None
-    choices: List[ChoiceCreate] = []
+    #choices: Optional[List[ChoiceCreate]] = []
+    choices: Optional[List[ChoiceCreate]] = None
+
+
+class AssessmentUpdate(BaseModel):
+    id: Optional[int] = None
+    lesson_id: Optional[int] = None
+    question_markdown: str
+    image_url: Optional[str] = None
+    max_score: Optional[int] = 1
+    explanation: Optional[str] = None
+    #choices: Optional[List[ChoiceCreate]] = []
+    choices: Optional[List[ChoiceCreate]] = None
 
 class AssessmentOut(BaseModel):
     id: int
@@ -81,29 +93,65 @@ class UserOut(BaseModel):
 # Course / Section / Lesson
 class LessonCreate(BaseModel):
     id: Optional[int] = None
-    title: str
-    type: str  # "video" or "pdf"
+    title: Optional[str] = None
+    type: Optional[str] = None  # "video" or "pdf"
     youtube_url: Optional[str] = None
     pdf_url: Optional[str] = None
     order: Optional[int] = 0
-    assessments: List[AssessmentCreate] = []
+    #assessments: Optional[List[AssessmentCreate]] = []
+    assessments: Optional[List[AssessmentCreate]] = None
+
+class LessonUpdate(BaseModel):
+    id: Optional[int] = None
+    title: Optional[str] = None
+    type: Optional[str] = None
+    youtube_url: Optional[str] = None
+    pdf_url: Optional[str] = None
+    order: Optional[int] = None
+    assessments: Optional[List["AssessmentUpdate"]] = None
+
 
 class SectionCreate(BaseModel):
     id: Optional[int] = None
-    title: str
+    title: Optional[str] = None
     order: Optional[int] = 0
-    lessons: Optional[List[LessonCreate]] = []
+    #lessons: Optional[List[LessonCreate]] = []
+    lessons: Optional[List[LessonCreate]] = None
+
+
+class SectionUpdate(BaseModel):
+    id: Optional[int] = None
+    title: Optional[str] = None
+    order: Optional[int] = None
+    lessons: Optional[List[LessonUpdate]] = None
+
 
 class CourseCreate(BaseModel):
     title: str
-    slug: str
+    #slug: Optional[str] = None
     description: Optional[str] = None
-    is_udemy: Optional[bool] = False
+    #is_udemy: Optional[bool] = False
+    is_udemy: bool = False
     udemy_url: Optional[str] = None
-    sections: Optional[List[SectionCreate]] = []
+    price_cents: Optional[int] = 0
+    currency: Optional[str] = "INR"
+    #sections: Optional[List[SectionCreate]] = []
 
-class CourseUpdate(CourseCreate):
+#class CourseUpdate(CourseCreate):
+    #id: Optional[int] = None  # optional for update if you want
+
+class CourseUpdate(BaseModel):
     id: Optional[int] = None  # optional for update if you want
+    title: Optional[str] = None
+    slug: Optional[str] = None
+    description: Optional[str] = None
+    is_udemy: Optional[bool] = None
+    udemy_url: Optional[str] = None
+    price_cents: Optional[int] = 0
+    currency: Optional[str] = "INR"
+    sections: Optional[List["SectionUpdate"]] = None
+
+
 
 class LessonOut(BaseModel):
     id: int
@@ -147,15 +195,19 @@ class CourseDetailOut(BaseModel):
     description: Optional[str]
     is_udemy: bool
     udemy_url: Optional[str]
+    price_cents: int
+    currency: str
     sections: List[SectionOut] = []
 
     class Config:
         orm_mode = True
 
 # Enrollment
-class EnrollmentCreate(BaseModel):
-    user_id: int
-    course_id: int
+#EnrollmentCreate should be deleted because the client must NEVER tell the backend who is enrolling.
+#That information must come from authentication, not request body.
+#class EnrollmentCreate(BaseModel):
+#    user_id: int
+#    course_id: int
 
 class EnrollmentOut(BaseModel):
     id: int
@@ -166,6 +218,26 @@ class EnrollmentOut(BaseModel):
 
     class Config:
         orm_mode = True
+
+class EnrollmentAttemptOut(BaseModel):
+    requires_payment: bool
+    course_id: int
+
+
+# Payments
+class CoursePriceOut(BaseModel):
+    currency: str
+    amount_cents: int
+    is_free: bool
+
+class PaymentOut(BaseModel):
+    id: int
+    provider: str
+    amount_cents: int
+    currency: str
+    status: str
+    created_at: datetime
+
 
 
 
@@ -202,9 +274,11 @@ class AttemptResultOut(BaseModel):
 
 # Feedback
 class FeedbackCreate(BaseModel):
-    user_id: int
-    course_id: int
-    rating: Optional[int] = None
+    # Client cannot impersonate another user - user_id will come from auth context. not from frontend. 
+    # Course ID already comes from the URL path
+    #user_id: int
+    #course_id: int
+    rating: Optional[int] = Field(None, ge=1, le=5)
     comment_markdown: Optional[str] = None
 
 class FeedbackOut(BaseModel):
@@ -220,3 +294,6 @@ class FeedbackOut(BaseModel):
 # ---- Forward Reference Fix ----
 LessonCreate.update_forward_refs()
 LessonOut.update_forward_refs()
+LessonUpdate.update_forward_refs()
+SectionUpdate.update_forward_refs()
+CourseUpdate.update_forward_refs()

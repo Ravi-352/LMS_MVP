@@ -57,7 +57,7 @@ export default function NewCoursePage() {
       <div className="flex gap-4 mb-4">
         <button
           className={`px-3 py-2 border rounded ${
-            !form.is_udemy ? "bg-primary text-white" : ""
+            !form.is_udemy ? "bg-primary-500 text-white" : ""
           }`}
           type="button"
           onClick={() => handleCourseType(false)}
@@ -67,7 +67,7 @@ export default function NewCoursePage() {
 
         <button
           className={`px-3 py-2 border rounded ${
-            form.is_udemy ? "bg-primary text-white" : ""
+            form.is_udemy ? "bg-primary-500 text-white" : ""
           }`}
           type="button"
           onClick={() => handleCourseType(true)}

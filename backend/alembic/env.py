@@ -1,6 +1,9 @@
 from logging.config import fileConfig
 from sqlalchemy import engine_from_config, create_engine, pool
 from alembic import context
+from alembic.autogenerate import compare_metadata
+from sqlalchemy.schema import CreateTable, CreateIndex
+from sqlalchemy.engine import default
 import os
 import sys
 # Add backend root to Python path
@@ -11,8 +14,8 @@ sys.path.insert(0, BASE_DIR)
 from app.core.config import settings
 #from app.db.sessions import Base
 from app.db.base import Base
-#from app import models  # Import models so Alembic can autogenerate migrations
-from app.models import User, Course, Section, Lesson, Enrollment, Assessment, Choice, AssessmentAttempt, StudentAnswer, CourseFeedback, StudentLesson  # Import models so Alembic can autogenerate migrations
+from app import models  # Import models so Alembic can autogenerate migrations
+#from app.models import (User, Course, Section, Lesson, Enrollment, Assessment, Choice, AssessmentAttempt, StudentAnswer, CourseFeedback, StudentLesson, Payment)  # Import models so Alembic can autogenerate migrations
 
 # >>> ADD THIS CHECK:
 print(f"DEBUG: Tables found by Base.metadata: {Base.metadata.tables.keys()}")
@@ -42,6 +45,14 @@ def run_migrations_offline():
         target_metadata=target_metadata,
         literal_binds=True,
         dialect_opts={"paramstyle": "named"},
+        compare_type=True,
+        compare_server_default=True,
+        #include_schemas=True,
+        #include_schema=False,
+        #version_table_schema=SCHEMA_NAME,
+        #version_table_schema=None,
+        include_object=lambda obj, name, type_, reflected, compare_to:
+            not (type_ == "table" and name == "alembic_version"),
     )
     with context.begin_transaction():
         context.run_migrations()
@@ -62,21 +73,35 @@ def run_migrations_online():
     )
 
     with connectable.connect() as connection:
+
+        # Debug: Show diffs between metadata and DB
+        #diffs = compare_metadata(connection, target_metadata)
+        #print(f"DEBUG: Alembic autogenerate diffs: {diffs}")
+
         context.configure(
             connection=connection, target_metadata=target_metadata,
             # === CRITICAL ADDITIONS FOR POSTGRES INTROSPECTION ===
             # Forces Alembic to consider tables across schema dependencies
-            sqlalchemy_enable_dependent_tables=True, 
+            #sqlalchemy_enable_dependent_tables=True, 
             # Tells Alembic to check the 'public' schema explicitly
-            include_schemas=True,
+            #include_schemas=True,
             compare_type=True,
             compare_server_default=True,
-            version_table_schema=SCHEMA_NAME,
+            #include_schema=False,
+            #version_table_schema=SCHEMA_NAME,
+            #version_table_schema=None,
             include_object=lambda obj, name, type_, reflected, compare_to:
                 not (type_ == "table" and name == "alembic_version"),
-            render_as_batch=True
+            #render_as_batch=True
             # =======================================================
         )
+        
+        # DEBUG: Alembic autogenerate diffs
+        #from alembic.autogenerate.api import produce_migrations
+        #migration_script = produce_migrations(context, target_metadata)
+        #print(f"DEBUG: Alembic diffs: {migration_script.upgrade_ops.to_diff_string()}")
+        
+        
         with context.begin_transaction():
             context.run_migrations()
 

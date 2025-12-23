@@ -7,7 +7,7 @@ export default function InstructorDashboard() {
   const [courses, setCourses] = useState([]);
 
   useEffect(() => {
-    apiFetch("/instructors/courses")
+    apiFetch("/instructor/courses")
       .then(data => setCourses(data))
       .catch(() => {});
   }, []);

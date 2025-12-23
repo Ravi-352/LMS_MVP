@@ -33,6 +33,28 @@ def list_my_courses(current_user: models.User = Depends(require_role("instructor
     courses = db.query(models.Course).filter_by(educator_id=current_user.id).all()
     return courses
 
+@router.post("/courses/{course_id}/sections", response_model=schemas.SectionOut)
+def create_section(
+    course_id: int,
+    section_in: schemas.SectionCreate,
+    current_user: models.User = Depends(require_role("instructor")),
+    db: Session = Depends(get_db),
+    _csrf=Depends(verify_csrf)
+):
+    course = crud.get_course_by_id(db, course_id)
+    if not course or course.educator_id != current_user.id:
+        raise HTTPException(403, "Not allowed")
+
+    section = models.Section(
+        course_id=course_id,
+        title=section_in.title,
+        order=section_in.order or 0
+    )
+    db.add(section)
+    db.commit()
+    db.refresh(section)
+    return section
+
 
 @router.put("/courses/{course_id}", response_model=schemas.CourseDetailOut)
 def update_course(course_id: int, course_in: schemas.CourseUpdate, current_user: models.User = Depends(require_role("instructor")), db: Session = Depends(get_db), _csrf=Depends(verify_csrf)):

@@ -14,9 +14,12 @@ router = APIRouter()
 # crud → Functions that talk to the DB (Create/Read/Update/Delete)
 # schemas → Pydantic models for request & response validation
 
-@router.post("/", response_model=schemas.CourseOut)
-def create_course(course: schemas.CourseCreate, db: Session = Depends(get_db)):
-    return crud.create_course(db, course)
+#@router.post("/", response_model=schemas.CourseDetailOut)
+#def create_course(course: schemas.CourseCreate, db: Session = Depends(get_db), user: models.User = Depends(get_current_user),):
+#    if not user.is_educator:
+#        raise HTTPException(status_code=403, detail="Only educators can create courses")
+#    
+#    return crud.create_course(db, course)
 
 @router.get("/", response_model=list[schemas.CourseOut])
 def list_courses(skip: int = 0, limit: int = 50, db: Session = Depends(get_db)):

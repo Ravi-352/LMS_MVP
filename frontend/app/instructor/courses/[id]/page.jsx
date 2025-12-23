@@ -9,10 +9,10 @@ export default function InstructorCourseEditPage() {
   const { id } = useParams();
 
   return (
-    <Layout>
+    <section>
       <div className="max-w-5xl mx-auto px-4 py-6">
         <CourseBuilder courseId={id} />
       </div>
-    </Layout>
+    </section>
   );
 }

@@ -6,6 +6,7 @@ from datetime import datetime
 from fastapi import HTTPException, status
 from datetime import timezone
 from app.core import security
+from slugify import slugify
 
 # creates a password hashing helper using the bcrypt algorithm
 # deprecated="auto" ensures compatibility with future versions, If I ever change hashing algorithms later, automatically treat the older ones as deprecated.
@@ -104,21 +105,34 @@ def update_progress(db: Session, user_id: int, course_id: int, progress: float):
 
 def create_course_with_educator(db: Session, course_in: schemas.CourseCreate, educator_id: int):
     # create the course and set educator_id
-    course = models.Course(title=course_in.title, slug=course_in.slug, description=course_in.description, is_udemy=course_in.is_udemy, udemy_url=course_in.udemy_url, educator_id=educator_id)
+    slug = generate_unique_slug(db, course_in.title)
+    # course = models.Course(title=course_in.title, slug=course_in.slug, description=course_in.description, is_udemy=course_in.is_udemy, udemy_url=course_in.udemy_url, educator_id=educator_id)
+    
+    course = models.Course(title=course_in.title, slug=slug, description=course_in.description, is_udemy=course_in.is_udemy, udemy_url=course_in.udemy_url, educator_id=educator_id, price_cents=0, currency="INR")
+    
     db.add(course)
     db.commit()
     db.refresh(course)
-    # create sections/lessons if present
-    for s_idx, s in enumerate(course_in.sections or []):
-        sec = models.Section(course_id=course.id, title=s.title, order=s_idx)
+    
+    # create default section for self-hosted courses
+
+    if not course.is_udemy:
+        sec = models.Section(course_id=course.id, title="Introduction", order=0)
         db.add(sec)
         db.commit()
         db.refresh(sec)
-        for l_idx, l in enumerate(s.lessons or []):
-            lesson = models.Lesson(section_id=sec.id, title=l.title, type=l.type,
-                                   youtube_url=l.youtube_url, pdf_url=l.pdf_url, order=l_idx)
-            db.add(lesson)
-        db.commit()
+
+    # create sections/lessons if present
+    #for s_idx, s in enumerate(course_in.sections or []):
+    #    sec = models.Section(course_id=course.id, title=s.title, order=s_idx)
+    #    db.add(sec)
+    #    db.commit()
+    #    db.refresh(sec)
+    #    for l_idx, l in enumerate(s.lessons or []):
+    #        lesson = models.Lesson(section_id=sec.id, title=l.title, type=l.type,
+    #                               youtube_url=l.youtube_url, pdf_url=l.pdf_url, order=l_idx)
+    #        db.add(lesson)
+    #    db.commit()
     return course
 
 
@@ -260,6 +274,21 @@ def mark_lesson_completed(db, user_id: int, lesson_id: int):
 
 
 # ---------- Upsert helpers (create or update) ----------
+
+
+def generate_unique_slug(db, title):
+    base = slugify(title)
+    slug = base
+    counter = 1
+
+    while db.query(models.Course).filter(models.Course.slug == slug).first():
+        slug = f"{base}-{counter}"
+        counter += 1
+
+    return slug
+
+
+
 def _upsert_choice(db: Session, assessment: models.Assessment, choice_in: dict):
     # choice_in has optional id; create or update
     if choice_in.get("id"):
@@ -562,7 +591,7 @@ def upsert_feedback(db: Session, user_id: int, course_id: int, fb: schemas.Feedb
         feedback.rating = fb.rating
         feedback.comment = fb.comment_markdown
     else:
-        feedback = models.Feedback(
+        feedback = models.CourseFeedback(
             user_id=user_id,
             course_id=course_id,
             rating=fb.rating,
@@ -574,19 +603,32 @@ def upsert_feedback(db: Session, user_id: int, course_id: int, fb: schemas.Feedb
     db.refresh(feedback)
     return feedback
 
-def list_feedback_for_course(db: Session, course_id: int, limit: int = 50):
+def list_feedback_for_course(db: Session, course_id: int, limit: int = 50, offset=0):
     return db.query(models.CourseFeedback).filter_by(course_id=course_id).order_by(
         models.CourseFeedback.created_at.desc()
-    ).limit(limit).all()
+    ).offset(offset).limit(limit).all()
 
 def get_feedback_summary(db: Session, course_id: int):
     from sqlalchemy import func
-    avg_rating = db.query(func.avg(models.CourseFeedback.rating)).filter_by(course_id=course_id).scalar()
+    avg_rating = db.query(func.avg(models.CourseFeedback.rating)).filter_by(models.CourseFeedback.course_id == course_id, models.CourseFeedback.rating.isnot(None)).scalar()
     count = db.query(models.CourseFeedback.id).filter_by(course_id=course_id).count()
     return {
         "avg_rating": round(avg_rating or 0, 2),
         "total_reviews": count
     }
+
+
+def get_successful_payment(db: Session, user_id: int, course_id: int):
+    return (
+        db.query(models.Payment)
+        .filter(
+            models.Payment.user_id == user_id,
+            models.Payment.course_id == course_id,
+            models.Payment.status == "success",
+        )
+        .order_by(models.Payment.created_at.desc())
+        .first()
+    )
 
 #def add_feedback(db: Session, f: schemas.FeedbackCreate):
 #    fb = models.CourseFeedback(user_id=f.user_id, course_id=f.course_id, rating=f.rating, comment_markdown=f.comment_markdown)

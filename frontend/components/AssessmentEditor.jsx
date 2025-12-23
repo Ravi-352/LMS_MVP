@@ -14,10 +14,10 @@ export default function AssessmentEditor({ assessment = {}, onChange, onDelete }
   const [draft, setDraft] = useState({
     id: assessment.id ?? null,
     question_markdown: assessment.question_markdown ?? "",
-    image_url: assessment.image_url ?? "",
+    image_url: assessment.image_url ?? null,
     max_score: assessment.max_score ?? 1,
     explanation: assessment.explanation ?? "",
-    choices: (assessment.choices || []).map(c => ({ id: c.id ?? null, text: c.text, is_correct: !!c.is_correct, explanation: c.explanation })) || []
+    choices: (assessment.choices || []).map(c => ({ id: c.id ?? null, text: c.text ?? "", is_correct: c.is_correct ?? false, explanation: c.explanation ?? null })) || []
   });
 
   function setField(k, v) {

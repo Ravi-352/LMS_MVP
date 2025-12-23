@@ -67,13 +67,13 @@ export default function SectionEditor({ section, onChange, onAddLesson, onDelete
           </div>
 
           {editingIndex === idx && (
-            <div className="mt-3 w-full">
+            //<div className="mt-3 w-full">
               <LessonEditor
                 lesson={l}
                 onCancel={() => setEditingIndex(null)}
                 onSave={(updated) => { updateLesson(idx, updated); setEditingIndex(null); }}
               />
-            </div>
+            //</div>
           )}
         </div>
       ))}

@@ -84,13 +84,24 @@ export async function apiFetch(endpoint, options = {}) {
     ...(options.headers || {}),
   };
 
+  const fetchOptions = {
+  method: options.method || "GET",
+  headers,
+  credentials: "include"
+  };
+
+   if (options.body) {
+    fetchOptions.body = JSON.stringify(options.body);   // <-- REQUIRED
+  }
+
+
   if (["POST","PUT","PATCH","DELETE"].includes(method)) {
     const csrf = getCookie("csrf_token");
     if (csrf) headers["X-CSRF-Token"] = csrf;
   }
 
   const url = endpoint.startsWith("/") ? `${API_BASE}${endpoint}` : `${API_BASE}/${endpoint}`;
-  const res = await fetch(url, { ...options, headers, credentials: "include" });
+  const res = await fetch(url, { ...options, headers, credentials: "include", fetchOptions });
 
   const PUBLIC_PATHS = ["/login", "/signup", "/public/courses"];
 
@@ -104,4 +115,17 @@ export async function apiFetch(endpoint, options = {}) {
   const data = await parseJSONSafely(res);
   if (!res.ok) throw new Error(data?.detail || data?.message || data || "API Error");
   return data;
+}
+
+export async function logout() {
+  const res = await fetch(`${API_BASE}/auth/logout`, {
+    method: "POST",
+    credentials: "include",  // send cookies
+  });
+
+  if (!res.ok) {
+    throw new Error("Logout failed");
+  }
+
+  return true;
 }

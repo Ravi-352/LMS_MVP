@@ -15,8 +15,12 @@ export default function Layout({ children }) {
   const isProtected =
     pathname.startsWith("/student") ||
     pathname.startsWith("/instructor");
+
+  // Always call hooks FIRST
   //const { user, isLoading } = isProtected ? useCurrentUser() : { user: null, isLoading: false };
   const { user, isLoading } = useCurrentUser();
+
+  const [open, setOpen] = useState(false); // MUST stay above any condition return
 
   // Very important:
   if (isProtected && isLoading) {
@@ -33,7 +37,7 @@ export default function Layout({ children }) {
   }
   
   //const finalUser = isProtected ? user : null;
-  const [open, setOpen] = useState(false);
+  
 
   return (
     <div>
@@ -72,7 +76,7 @@ export default function Layout({ children }) {
             <Link href="/">Courses</Link>
             {user ? (
               <>
-                {finaluser.is_educator ? (
+                {user.is_educator ? (
                   <Link href="/instructor/dashboard" className="text-sm">Instructor</Link>
                 ) : (
                   <Link href="/student/dashboard" className="text-sm">Student</Link>
