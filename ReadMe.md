@@ -101,7 +101,28 @@ List of databases
 
 
 #### Schema/Model creation in DB
-We need to first create DB tables and indexes. Usually, we need to use alembic commands and env.py in backend/alembic folder.
+We need to set current index/state of DB with Alembic -
+```
+alembic upgrade head 
+```
+Sample Output:
+<img width="1445" height="477" alt="image" src="https://github.com/user-attachments/assets/992f324c-f1df-48cf-b7c1-927b642ad9ea" />
+
+```
+NFO 2025-12-23 06:43:29,597 sqlalchemy.engine.Engine: [cached since 0.003852s ago] {'table_name': 'alembic_version', 'param_1': 'r', 'param_2': 'p', 'param_3': 'f', 'param_4': 'v', 'param_5': 'm', 'nspname_1': 'public'}
+DEBUG 2025-12-23 06:43:29,598 sqlalchemy.engine.Engine: Col ('relname',)
+INFO 2025-12-23 06:43:29,599 sqlalchemy.engine.Engine:
+CREATE TABLE public.alembic_version (
+        version_num VARCHAR(32) NOT NULL,
+        CONSTRAINT alembic_version_pkc PRIMARY KEY (version_num)
+)
+
+
+INFO 2025-12-23 06:43:29,599 sqlalchemy.engine.Engine: [no key 0.00018s] {}
+INFO 2025-12-23 06:43:29,613 sqlalchemy.engine.Engine: COMMIT
+```
+
+Now we need to first create DB tables and indexes. Usually, we need to use alembic commands and env.py in backend/alembic folder.
 In Alembic, env.py configures how migrations detect your SQLAlchemy models and apply them to the database. To make Alembic automatically generate migrations for tables, indexes, constraints, you must:
 
 ✔ Import your Base metadata
@@ -204,6 +225,7 @@ SELECT * FROM users WHERE email='rk@gmail.com';
 ```
 To exit from the DB console -- `q`
 To exit from the DB connection ---> `exit`
+
 
 
 
