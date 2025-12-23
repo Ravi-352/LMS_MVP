@@ -133,12 +133,22 @@ Command to generate initial/base tables and indexes --.
 ```bash
 alembic revision --autogenerate -m "initial migration"
 ```
+
+
 A db schema version file gets generated in alembic/versions folder. If the tables in the file seems okay then we can commit it directly to DB using below command -->
+
+Version file screenshot for reference --
+
+<img width="706" height="731" alt="image" src="https://github.com/user-attachments/assets/bd9ffb99-7671-47fb-b9d2-5640ad3430f8" />
+
+
+
 ```bash
 alembic upgrade head
 
 ```
-**But, above commands didn't work in this case. So we made a work around. **
+
+**But, if in case above commands didn't work we made a work around. **
 #when alembic autogenerate not able to generate version file that has all models/tables, can use the script to manually generate DDL (Data Definition Language) -->
 
 ```bash 
@@ -152,6 +162,28 @@ alembic upgrade head
 
 ```
 THis commits all the tables and indexes to DB.
+
+Now log in the DB and cross-check if required tables created -
+
+```sql
+lmsdb=# \dt
+```
+OUTPUT:
+<img width="446" height="405" alt="image" src="https://github.com/user-attachments/assets/fe5671a6-bc97-400c-9c1d-96254db65f63" />
+
+SQL portable style verification:
+
+```sql
+SELECT tablename
+FROM pg_tables
+WHERE schemaname = 'public'
+ORDER BY tablename;
+```
+<img width="323" height="500" alt="image" src="https://github.com/user-attachments/assets/59806c7f-5295-4d97-891d-b8783812f69a" />
+
+
+#################################################################################################
+
 
 ### Spinning up the backend - in local - without docker
 From backend root folder -->
@@ -225,6 +257,7 @@ SELECT * FROM users WHERE email='rk@gmail.com';
 ```
 To exit from the DB console -- `q`
 To exit from the DB connection ---> `exit`
+
 
 
 
