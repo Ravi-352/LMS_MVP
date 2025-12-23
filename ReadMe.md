@@ -29,13 +29,6 @@ Running docker-compose for DB creates and starts postgresql DB
 ```
 version: '3.8'
 services:
-  backend:
-    build: .
-    env_file: .env
-    ports:
-      - "8000:8000"
-    depends_on:
-      - postgres
   postgres:
     image: postgres:15
     environment:
@@ -257,6 +250,7 @@ SELECT * FROM users WHERE email='rk@gmail.com';
 ```
 To exit from the DB console -- `q`
 To exit from the DB connection ---> `exit`
+
 
 
 
