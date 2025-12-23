@@ -53,6 +53,52 @@ Change USER and PASSWORD when you run the above file and make it consistent acro
 ```
 docker-compose -f docker-compose.yml up -d
 ```
+or manual commands to crete DB -->
+
+```
+# docker command to create a postgres container -->
+docker run -d \
+  -p 5432:5432 \
+  -e POSTGRES_USER=postgres \
+  -e POSTGRES_PASSWORD=postgres \
+  -e POSTGRES_DB=postgres \
+  -v postgresql_db_pgdata:/var/lib/postgresql/data \
+  postgres:15
+
+```
+```
+# Verifying container running -
+
+docker ps -a
+#OUTPUT
+CONTAINER ID   IMAGE         COMMAND                  CREATED         STATUS         PORTS                                         NAMES
+e32853614ac1   postgres:15   "docker-entrypoint.s…"   4 minutes ago   Up 4 minutes   0.0.0.0:5432->5432/tcp, [::]:5432->5432/tcp   musing_mahavira
+
+```
+
+##### Creating DB in the container -  
+```
+ docker exec -it musing_mahavira createdb -U postgres lmsdb
+
+#verifying:
+docker exec -it musing_mahavira psql -U postgres -l
+```
+
+Expected output:
+```
+List of databases
+   Name    |  Owner   | Encoding |  Collate   |   Ctype    | ICU Locale | Locale Provider |   Access privileges
+-----------+----------+----------+------------+------------+------------+-----------------+-----------------------
+ lmsdb     | postgres | UTF8     | en_US.utf8 | en_US.utf8 |            | libc            |
+ postgres  | postgres | UTF8     | en_US.utf8 | en_US.utf8 |            | libc            |
+ template0 | postgres | UTF8     | en_US.utf8 | en_US.utf8 |            | libc            | =c/postgres          +
+           |          |          |            |            |            |                 | postgres=CTc/postgres
+ template1 | postgres | UTF8     | en_US.utf8 | en_US.utf8 |            | libc            | =c/postgres          +
+           |          |          |            |            |            |                 | postgres=CTc/postgres
+(4 rows)
+
+```
+
 
 #### Schema/Model creation in DB
 We need to first create DB tables and indexes. Usually, we need to use alembic commands and env.py in backend/alembic folder.
@@ -158,6 +204,7 @@ SELECT * FROM users WHERE email='rk@gmail.com';
 ```
 To exit from the DB console -- `q`
 To exit from the DB connection ---> `exit`
+
 
 
 
