@@ -158,6 +158,11 @@ THis commits all the tables and indexes to DB.
 
 Now log in the DB and cross-check if required tables created -
 
+```bash
+# login to lmsdb
+psql postgresql://postgres:postgres@localhost:5432/lmsdb
+```
+
 ```sql
 lmsdb=# \dt
 ```
@@ -250,6 +255,7 @@ SELECT * FROM users WHERE email='rk@gmail.com';
 ```
 To exit from the DB console -- `q`
 To exit from the DB connection ---> `exit`
+
 
 
 
