@@ -120,7 +120,10 @@ def mark_complete(course_id: int, lesson_id: int, current_user: models.User = De
 
 @router.get("/courses/{course_id}/progress")
 def get_progress(course_id: int, current_user: models.User = Depends(require_role("student")), db: Session = Depends(get_db)):
-    return {"progress": crud.course_progress_percent(db, current_user.id, course_id)}
+    enrolled = crud.is_user_enrolled(db, current_user.id, course_id)
+    if not enrolled:
+        return {"is_enrolled": False, "progress_percent": 0}
+    return {"is_enrolled": True, "progress_percent": crud.course_progress_percent(db, current_user.id, course_id)}
 
 
 @router.post("/assessments/{assessment_id}/submit", response_model=schemas.AttemptResultOut)

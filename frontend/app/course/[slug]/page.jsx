@@ -17,25 +17,40 @@ export default function CoursePage({ params }) {
   useEffect(() => {
     async function load() {
       try {
-        const data = await apiFetch(`/public/courses/${slug}`);
-        setCourse(data);
+        //const data = await apiFetch(`/public/courses/${slug}`);
+        // loading public course data
+        const publicCourse = await apiFetch(`/public/courses/${slug}`);
+        setCourse(publicCourse);
         
-        const firstLesson = data?.sections?.[0]?.lessons?.[0];
+        // set first lesson as selected by default
+        const firstLesson = publicCourse?.sections?.[0]?.lessons?.[0] ?? null;
         setSelectedLesson(firstLesson);
-        // try to load progress if logged in
+        
+        // Try enrollment/progress (only works if logged in)
+
         try {
-          const p = await apiFetch(`/students/courses/${data.id}/progress`);
+          const p = await apiFetch(`/students/courses/${publicCourse.id}/progress`);
+          setIsEnrolled(p.is_enrolled === true);
           setProgress(p.progress_percent ?? 0);
-          setIsEnrolled(p.is_enrolled ?? (p.status === "enrolled"));
-        } catch (err) {
-          // ignore when not logged in
+        } catch (_) {
+          // not logged in and not enrolled → public preview
+          setIsEnrolled(false);
+          setProgress(0);
         }
+
       } catch (err) {
         console.error(err);
       }
     }
     load();
   }, [slug]);
+
+  const refreshEnrollment = async () => {
+    const p = await apiFetch(`/students/courses/${course.id}/progress`);
+    setIsEnrolled(true);
+    setProgress(p.progress_percent ?? 0);
+  };
+
 
   if (!course) return <div>Loading...</div>;
 
@@ -49,7 +64,8 @@ export default function CoursePage({ params }) {
               <div className="text-sm text-gray-600">{course.description}</div>
             </div>
             <div className="text-right">
-              {!isEnrolled && <EnrollButton courseId={course.id} onEnrolled={() => setIsEnrolled(true)} />}
+             {/* {!isEnrolled && <EnrollButton courseId={course.id} onEnrolled={() => setIsEnrolled(true)} />} */}
+             {!isEnrolled && <EnrollButton courseId={course.id} onEnrolled={refreshEnrollment} />}
               <div className="text-sm mt-2">Progress: {progress}%</div>
             </div>
           </div>
