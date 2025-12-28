@@ -5,6 +5,8 @@ import useSWR from "swr";
 import { useEffect, useState, useRef } from "react";
 import { apiFetch } from "@/lib/apiClient";
 import SectionEditor from "./SectionEditor";
+import { toast } from "react-hot-toast";
+
 
 /**
  * Props:
@@ -75,6 +77,8 @@ export default function CourseBuilder({ courseId }) {
     });
   }
 
+
+
   /** ---------------------------
    * SAVE (SAFE)
    * --------------------------*/
@@ -127,6 +131,26 @@ export default function CourseBuilder({ courseId }) {
     });
 
   }
+
+  async function saveSections() {
+  try {
+    const res = await apiFetch(`/instructor/courses/${courseId}/structure`, {
+      method: "PUT",
+      body: JSON.stringify({ sections }),
+    });
+    
+    //alert("Sections saved");
+    if (res.ok) {
+      toast.success("Sections saved");
+    }
+
+  } catch (err) {
+    console.error(err);
+    alert("Failed to save sections");
+    toast.error(err.message || "Failed to save sections");
+  }
+}
+
 
   if (!courseMeta) return <p>Loading builder...</p>;
 
@@ -235,6 +259,20 @@ export default function CourseBuilder({ courseId }) {
                     return next;
                   })
                 }
+                onLessonAdd={(lesson) =>
+                  setSections((prev) => {
+                    const next = [...prev];
+                    next[idx].lessons = [...next[idx].lessons, lesson];
+                    return next;
+                  })
+                }
+                onLessonDelete={(lessonIdx) =>
+                  setSections((prev) => {
+                    const next = [...prev];
+                    next[idx].lessons = next[idx].lessons.filter((_, i) => i !== lessonIdx);
+                    return next;
+                  })
+                }
               />
             </div>
           ))}
@@ -242,10 +280,20 @@ export default function CourseBuilder({ courseId }) {
 
         {error && <p className="text-red-600 mt-3">{error}</p>}
       </section>
+      
+      <button
+        onClick={saveSections}
+        className="px-4 py-2 bg-blue-600 text-white rounded"
+      >
+        Save Sections & Lessons
+      </button>
 
+      
       <footer className="text-sm text-gray-600">
         Autosave applies to course info only. Sections are saved via APIs later.
       </footer>
+
+
     </div>
   );
 }

@@ -50,8 +50,8 @@ export default function AssessmentEditor({ assessment = {}, onChange, onDelete }
 
   return (
     <div className="space-y-2">
-      <textarea className="w-full p-2 border rounded" rows="3" placeholder="Question (markdown supported)" value={draft.question_markdown} onChange={e => setField("question_markdown", e.target.value)} />
-      <input className="input" placeholder="Image URL (optional)" value={draft.image_url} onChange={e => setField("image_url", e.target.value)} />
+      <textarea className="w-full p-2 border rounded" rows="3" placeholder="Question (markdown supported)" value={draft.question_markdown ?? ""} onChange={e => setField("question_markdown", e.target.value)} />
+      <input className="input" placeholder="Image URL (optional)" value={draft.image_url ?? ""} onChange={e => setField("image_url", e.target.value)} />
       <div className="flex gap-2 items-center">
         <label className="text-sm">Max score</label>
         <input type="number" min="1" value={draft.max_score} onChange={e => setField("max_score", Number(e.target.value))} className="w-20 input" />
@@ -72,7 +72,7 @@ export default function AssessmentEditor({ assessment = {}, onChange, onDelete }
         ))}
       </div>
 
-      <textarea className="w-full p-2 border rounded" rows="2" placeholder="Explanation (optional)" value={draft.explanation} onChange={e => setField("explanation", e.target.value)} />
+      <textarea className="w-full p-2 border rounded" rows="2" placeholder="Explanation (optional)" value={draft.explanation ?? ""} onChange={e => setField("explanation", e.target.value)} />
 
       <div className="flex justify-end gap-2">
         <button onClick={onDelete} className="text-sm text-red-600">Delete assessment</button>

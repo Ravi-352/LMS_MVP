@@ -1,8 +1,8 @@
 "use client";
 import Link from "next/link";
-import React, { useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import { useCurrentUser } from "@/lib/hooks/useCurrentUser";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 
 
 // inside component:
@@ -12,6 +12,7 @@ import { usePathname } from "next/navigation";
 
 export default function Layout({ children }) {
   const pathname = usePathname();
+  const router = useRouter();
   const isProtected =
     pathname.startsWith("/student") ||
     pathname.startsWith("/instructor");
@@ -22,19 +23,39 @@ export default function Layout({ children }) {
 
   const [open, setOpen] = useState(false); // MUST stay above any condition return
 
-  // Very important:
+  // Handle Loading States
+  // While checking for a user on a protected page, show a loader
   if (isProtected && isLoading) {
-    return <div className="p-6 text-center">Loading...</div>;
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-500"></div>
+        <span className="ml-3">Verifying session...</span>
+      </div>
+    );
+  }
+
+  // Redirect unauthenticated users on protected routes
+  useEffect(() => {
+    if (!isLoading && isProtected && !user) {
+      router.replace("/login");
+    }
+  }, [user, isLoading, isProtected, router]);
+
+  // Avoid rendering protected content briefly
+  if (isProtected && !user) {
+    return null;
   }
 
   //if (isProtected && !isLoading && !user && pathname !== "/login") {
-  if (isProtected && !isLoading && !user) {
+  //if (isProtected && !isLoading && !user) {
   // redirect to login
-    if (typeof window !== "undefined") {
-      window.location.href = "/login";
-      }
-    return null;
-  }
+  //  if (typeof window !== "undefined") {
+  //    window.location.href = "/login";
+  //    }
+  //  return null;
+  //}
+
+
   
   //const finalUser = isProtected ? user : null;
   
@@ -53,11 +74,17 @@ export default function Layout({ children }) {
             <Link href="/" className="text-sm">Courses</Link>
             {user ? (
               <>
-                {user.is_educator ? (
-                  <Link href="/instructor/dashboard" className="text-sm">Instructor</Link>
-                ) : (
-                  <Link href="/student/dashboard" className="text-sm">Student</Link>
-                )}
+                <Link
+                  href={
+                    user.is_educator
+                      ? "/instructor/dashboard"
+                      : "/student/dashboard"
+                  }
+                  className="text-sm"
+                >
+                  {user.is_educator ? "Instructor" : "Student"}
+                </Link>
+
 
                 <Link href="/logout" className="text-sm text-primary-500 font-medium">Logout</Link>
               </>
@@ -76,11 +103,15 @@ export default function Layout({ children }) {
             <Link href="/">Courses</Link>
             {user ? (
               <>
-                {user.is_educator ? (
-                  <Link href="/instructor/dashboard" className="text-sm">Instructor</Link>
-                ) : (
-                  <Link href="/student/dashboard" className="text-sm">Student</Link>
-                )}
+                <Link
+                  href={
+                    user.is_educator
+                      ? "/instructor/dashboard"
+                      : "/student/dashboard"
+                  }
+                >
+                  {user.is_educator ? "Instructor" : "Student"}
+                </Link>
 
                 <Link href="/logout">Logout</Link>
               </>

@@ -19,6 +19,7 @@ export default function CoursePage({ params }) {
       try {
         const data = await apiFetch(`/public/courses/${slug}`);
         setCourse(data);
+        
         const firstLesson = data?.sections?.[0]?.lessons?.[0];
         setSelectedLesson(firstLesson);
         // try to load progress if logged in

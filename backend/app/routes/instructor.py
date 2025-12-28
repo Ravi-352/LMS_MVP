@@ -27,7 +27,8 @@ def create_course(course_in: schemas.CourseCreate, current_user: models.User = D
     return crud.get_course_by_id(db, course.id)
 
 
-@router.get("/courses", response_model=list[schemas.CourseDetailOut])
+#@router.get("/courses", response_model=list[schemas.CourseDetailOut])
+@router.get("/courses", response_model=list[schemas.CourseListOut])
 def list_my_courses(current_user: models.User = Depends(require_role("instructor")),
                     db: Session = Depends(get_db)):
     courses = db.query(models.Course).filter_by(educator_id=current_user.id).all()
@@ -72,6 +73,26 @@ def update_course(course_id: int, course_in: schemas.CourseUpdate, current_user:
     # return nested detail (APEX)
     return crud.get_course_by_id(db, course_id)
 
+@router.put("/courses/{course_id}/structure", response_model=schemas.OkResponse)
+def update_course_structure(
+    course_id: int,
+    payload: schemas.CourseStructureUpdate,
+    current_user: models.User = Depends(require_role("instructor")),
+    db: Session = Depends(get_db),
+    _csrf=Depends(verify_csrf),
+):
+    course = crud.get_course_by_id(db, course_id)
+    if not course or course.educator_id != current_user.id:
+        raise HTTPException(403, "Not allowed")
+
+    return crud.update_course_structure(
+        db=db,
+        course_id=course_id,
+        sections=payload.sections,
+        instructor_id=current_user.id,
+    )
+
+#@router.get("/courses/{course_id}", response_model=schemas.CourseEditorOut)
 @router.get("/courses/{course_id}", response_model=schemas.CourseDetailOut)
 def get_course_detail(course_id: int,
                       current_user: models.User = Depends(require_role("instructor")),

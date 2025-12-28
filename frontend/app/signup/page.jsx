@@ -34,8 +34,16 @@ export default function SignupPage() {
         })
       });
 
-      const data = await res.json();
-      if (!res.ok) throw new Error(data?.detail || "Signup failed");
+      //const data = await res.json();
+      const data = await res;
+      //const text = await res.text();
+      /*if (!res.ok) {
+        console.error("Signup failed:", data.status, data);
+        throw new Error(data?.detail || "Signup failed");
+      }
+      */
+
+      console.log("Signup success:", data);
 
       alert("Account created! Please login.");
       window.location.href = "/login"; // redirect

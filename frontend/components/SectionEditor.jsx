@@ -4,7 +4,7 @@
 import { useState } from "react";
 import LessonEditor from "./LessonEditor";
 
-export default function SectionEditor({ section, onChange, onAddLesson, onDeleteLesson }) {
+export default function SectionEditor({ section, onChange, onLessonAdd, onLessonDelete }) {
   const [editingIndex, setEditingIndex] = useState(null);
 
   function addLessonTemplate() {
@@ -21,7 +21,7 @@ export default function SectionEditor({ section, onChange, onAddLesson, onDelete
 
   function handleAddLesson() {
     const newLesson = addLessonTemplate();
-    onAddLesson(newLesson);
+    onLessonAdd(newLesson);
     // open editor for the newly added lesson (last index)
     setEditingIndex((section.lessons?.length || 0));
   }

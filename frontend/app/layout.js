@@ -2,7 +2,7 @@
 import '@/styles/globals.css';
 import SWRProvider from '@/components/SWRProvider'; // Import the provider
 import Layout from "@/components/Layout";
-//import { Toaster } from "@/components/ui/toaster"; // for notifications
+import { Toaster } from "react-hot-toast";
 
 
 export const metadata = {
@@ -19,6 +19,7 @@ export default function RootLayout({ children }) {
             {children}
           </Layout>
         </SWRProvider>
+        <Toaster position="top-right" />
       </body>
     </html>
   );

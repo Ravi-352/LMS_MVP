@@ -29,7 +29,7 @@ class ChoiceOut(BaseModel):
 class AssessmentCreate(BaseModel):
     id: Optional[int] = None
     lesson_id: Optional[int] = None
-    question_markdown: str
+    question_markdown: str = ""
     image_url: Optional[str] = None
     max_score: Optional[int] = 1
     explanation: Optional[str] = None
@@ -56,6 +56,24 @@ class AssessmentOut(BaseModel):
     choices: List[ChoiceOut] = []
     class Config:
         orm_mode = True
+
+class LessonUpsert(BaseModel):
+    id: int | None = None
+    title: str
+    type: str
+    youtube_url: str | None = None
+    pdf_url: str | None = None
+    order: int
+
+class SectionUpsert(BaseModel):
+    id: int | None = None
+    title: str
+    order: int
+    lessons: list[LessonUpsert] = []
+
+class CourseStructureUpdate(BaseModel):
+    sections: list[SectionUpsert]
+
 
 # Assessment - for students hide correct answers
 class AssessmentQuestionOut(BaseModel):
@@ -175,17 +193,35 @@ class SectionOut(BaseModel):
     class Config:
         orm_mode = True
 
+class LessonEditorOut(BaseModel):
+    id: int
+    title: str
+    type: str
+    order: int
 
-#class CourseOut(BaseModel):
-#    id: int
-#    title: str
-#    slug: str
-#    description: Optional[str]
-#    is_udemy: bool
-#    udemy_url: Optional[str]
+    class Config:
+        from_attributes = True
 
-#    class Config:
-#        orm_mode = True
+
+class SectionEditorOut(BaseModel):
+    id: int
+    title: str
+    order: int
+    lessons: List[LessonEditorOut]
+
+    class Config:
+        from_attributes = True
+
+    #class CourseOut(BaseModel):
+    #    id: int
+    #    title: str
+    #    slug: str
+    #    description: Optional[str]
+    #    is_udemy: bool
+    #    udemy_url: Optional[str]
+
+    #    class Config:
+    #        orm_mode = True
 
 # Course detail (APEX)
 class CourseDetailOut(BaseModel):
@@ -202,13 +238,68 @@ class CourseDetailOut(BaseModel):
     class Config:
         orm_mode = True
 
+class CourseListOut(BaseModel):
+    id: int
+    title: str
+    slug: str
+    description: Optional[str]
+    is_udemy: bool
+    udemy_url: Optional[str]
+    price_cents: Optional[int] = None
+    currency: Optional[str] = None
+
+    class Config:
+        orm_mode = True
+
+class StudentCourseOut(BaseModel):
+    course_id: int
+    course_title: str
+    course_slug: str
+    course_description: Optional[str]
+    progress_percent: float
+
+    class Config:
+        #from_attributes = True
+        orm_mode = True
+
+
+class PublicCourseListOut(BaseModel):
+    id: int
+    title: str
+    slug: str
+    description: Optional[str]
+    is_udemy: bool
+    udemy_url: Optional[str]
+    price_cents: Optional[int] = None
+    currency: Optional[str] = None
+
+    class Config:
+        orm_mode = True
+
+
+class CourseEditorOut(BaseModel):
+    id: int
+    title: str
+    description: Optional[str]
+    price_cents: int
+    currency: str
+    is_published: bool
+    sections: List[SectionEditorOut]
+
+    class Config:
+        #from_attributes = True
+        orm_mode = True
+
+
 # Enrollment
 #EnrollmentCreate should be deleted because the client must NEVER tell the backend who is enrolling.
 #That information must come from authentication, not request body.
 #class EnrollmentCreate(BaseModel):
 #    user_id: int
 #    course_id: int
-
+class EnrollmentCreate(BaseModel):
+    course_id: int
+    
 class EnrollmentOut(BaseModel):
     id: int
     user_id: int
@@ -290,6 +381,10 @@ class FeedbackOut(BaseModel):
     created_at: datetime
     class Config:
         orm_mode = True
+
+class OkResponse(BaseModel):
+    ok: bool = True
+
 
 # ---- Forward Reference Fix ----
 LessonCreate.update_forward_refs()

@@ -7,15 +7,18 @@ from app.core.auth import require_role, get_current_user, verify_csrf
 from app import crud, schemas, models
 from app.core.logging_config import logger
 from typing import List
+import logging
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
 
 # Enroll
 @router.post("/enroll", response_model=schemas.EnrollmentOut)
-#def enroll(enr: schemas.EnrollmentCreate, current_user: models.User = Depends(require_role("student")), db: Session = Depends(get_db), _csrf=Depends(verify_csrf)):
-def enroll(course_id: int, current_user: models.User = Depends(require_role("student")), db: Session = Depends(get_db), _csrf=Depends(verify_csrf)):
+#def enroll(course_id: int, current_user: models.User = Depends(require_role("student")), db: Session = Depends(get_db), _csrf=Depends(verify_csrf)):
+def enroll(enr: schemas.EnrollmentCreate, current_user: models.User = Depends(require_role("student")), db: Session = Depends(get_db), _csrf=Depends(verify_csrf)):
     # ignore e.user_id from client; use current_user
+    course_id = enr.course_id
+    payment = None
     course = crud.get_course_by_id(db, course_id)
     if not course:
         raise HTTPException(status_code=404, detail="Course not found")
@@ -27,8 +30,8 @@ def enroll(course_id: int, current_user: models.User = Depends(require_role("stu
             user_id=current_user.id,
             course_id=course_id
         )
-    if not payment:
-        raise HTTPException(status_code=402, detail="Payment required")
+        if not payment:
+            raise HTTPException(status_code=402, detail="Payment required")
     
     try:
         
@@ -49,6 +52,30 @@ def enroll(course_id: int, current_user: models.User = Depends(require_role("stu
         # Unexpected error => Debugging required
         logger.error(f"Unknown error enrolling user {current_user.id} in course {course_id}: {str(e)}")
         raise HTTPException(status_code=500, detail="Unexpected server error")
+    
+@router.get("/courses", response_model=list[schemas.StudentCourseOut])
+def my_courses(
+    current_user: models.User = Depends(require_role("student")),
+    db: Session = Depends(get_db)
+):
+    rows = (
+        db.query(models.Course, models.Enrollment.progress_percent)
+        .join(models.Enrollment, models.Enrollment.course_id == models.Course.id)
+        .filter(models.Enrollment.user_id == current_user.id)
+        .all()
+    )
+
+    return [
+        {
+            "course_id": c.id,
+            "course_title": c.title,
+            "course_slug": c.slug,
+            "course_description": c.description,
+            "progress_percent": p,
+        }
+        for c, p in rows
+    ]
+
 
 # Get course detail (with lessons and assessments, hiding correct answers)
 @router.get("/courses/{course_id}", response_model=schemas.CourseDetailOut)

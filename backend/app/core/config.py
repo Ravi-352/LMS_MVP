@@ -1,4 +1,5 @@
 from pydantic import BaseSettings
+#from pydantic_settings import BaseSettings
 from typing import List
 import ast
 
@@ -8,8 +9,8 @@ class Settings(BaseSettings):
     DATABASE_URL: str
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60
     # cookie config
-    COOKIE_SECURE: bool = True          # set False in development
-    COOKIE_SAMESITE: str = "none"       # "none" for cross-site; "lax" for same-site
+    COOKIE_SECURE: bool = False          # set False in development
+    COOKIE_SAMESITE: str = "lax"       # "none" for cross-site; "lax" for same-site
     COOKIE_DOMAIN: str = None           # optional
 
     CORS_ORIGINS: list[str]

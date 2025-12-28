@@ -73,7 +73,7 @@ export async function apiFetchPublic(endpoint, options = {}) {
   //const data = await parseJSONSafely(res);
   //if (!res.ok) throw new Error(data?.detail || data?.message || data || "API Error");
   //return data; // ← do NOT redirect on 401
-  return res
+  return await res.json();
 }
 
 
@@ -84,16 +84,16 @@ export async function apiFetch(endpoint, options = {}) {
     ...(options.headers || {}),
   };
 
-  const fetchOptions = {
+  /* const fetchOptions = {
   method: options.method || "GET",
   headers,
   credentials: "include"
   };
-
+  
    if (options.body) {
     fetchOptions.body = JSON.stringify(options.body);   // <-- REQUIRED
   }
-
+  */
 
   if (["POST","PUT","PATCH","DELETE"].includes(method)) {
     const csrf = getCookie("csrf_token");
@@ -101,14 +101,15 @@ export async function apiFetch(endpoint, options = {}) {
   }
 
   const url = endpoint.startsWith("/") ? `${API_BASE}${endpoint}` : `${API_BASE}/${endpoint}`;
-  const res = await fetch(url, { ...options, headers, credentials: "include", fetchOptions });
-
+  // const res = await fetch(url, { ...options, headers, credentials: "include", fetchOptions });
+  const res = await fetch(url, { ...options, headers, credentials: "include"});
   const PUBLIC_PATHS = ["/login", "/signup", "/public/courses"];
 
+  
   if (res.status === 401) {
-    if (typeof window !== "undefined" && !PUBLIC_PATHS.includes(window.location.pathname)) {
+  /*  if (typeof window !== "undefined" && !PUBLIC_PATHS.includes(window.location.pathname)) {
       window.location.href = "/login";
-    }
+    }*/
     throw new Error("Unauthorized");
   }
 

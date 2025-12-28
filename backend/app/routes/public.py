@@ -6,10 +6,15 @@ from app import crud, schemas
 from typing import List
 
 router = APIRouter()
-
-@router.get("/courses", response_model=List[schemas.CourseDetailOut])
+#@router.get("/courses", response_model=List[schemas.CourseDetailOut])
+@router.get("/courses", response_model=List[schemas.PublicCourseListOut])
 def list_courses(skip: int = 0, limit: int = 50, db: Session = Depends(get_db)):
-    return crud.list_courses(db, skip=skip, limit=limit)
+    #return crud.list_public_courses(db, skip=skip, limit=limit)
+    courses = crud.list_courses(db, skip=skip, limit=limit)
+    print("Courses fetched:", courses)
+    print(type(courses[0]))
+    return courses
+    
 
 @router.get("/courses/{slug}", response_model=schemas.CourseDetailOut)
 def get_course(slug: str, db: Session = Depends(get_db)):

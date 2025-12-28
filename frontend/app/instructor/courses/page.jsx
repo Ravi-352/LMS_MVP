@@ -5,7 +5,8 @@ import Link from "next/link";
 import Layout from "@/components/Layout";
 
 export default function InstructorCoursesPage() {
-  const { data: courses, isLoading } = useSWR("/instructor/me/courses");
+  //const { data: courses, isLoading } = useSWR("/instructor/me/courses");
+  const { data: courses, isLoading } = useSWR("/instructor/courses");
 
   return (
     <section className="p-6 max-w-5xl mx-auto">
@@ -35,7 +36,10 @@ export default function InstructorCoursesPage() {
           ))}
         </div>
       ) : (
-        <p>No courses yet. Click **New Course** to start!</p>
+        <p className="text-gray-600">
+          No courses yet. Click <strong>New Course</strong> to start!
+        </p>
+
       )}
     </section>
   );

@@ -46,6 +46,24 @@ def create_course(db: Session, course_in: schemas.CourseCreate):
 def list_courses(db: Session, skip=0, limit=50):
     return db.query(models.Course).offset(skip).limit(limit).all()
 
+def list_public_courses(db: Session, skip=0, limit=50):
+    return (
+        db.query(models.Course)
+        .filter(models.Course.is_published == True)
+        .offset(skip)
+        .limit(limit)
+        .all()
+    )
+
+def list_instructor_courses(db, instructor_id):
+    return (
+        db.query(models.Course)
+        .filter(models.Course.educator_id == instructor_id)
+        .all()
+    )
+
+
+
 # ---------- helper lookups ----------
 def get_course_by_id(db: Session, course_id: int):
     return db.query(models.Course).options(
@@ -573,6 +591,72 @@ def delete_lesson_simple(db: Session, lesson_id: int):
 
     db.flush()
     return True
+
+def update_course_structure(db, course_id, sections, instructor_id):
+    course = db.query(models.Course).filter_by(
+        id=course_id,
+        educator_id=instructor_id
+    ).first()
+
+    if not course:
+        raise HTTPException(404, "Course not found")
+
+    existing_sections = {s.id: s for s in course.sections}
+    seen_section_ids = set()
+
+    for sec in sections:
+        if sec.id and sec.id in existing_sections:
+            section = existing_sections[sec.id]
+            section.title = sec.title
+            section.order = sec.order
+        else:
+            section = models.Section(
+                course_id=course.id,
+                title=sec.title,
+                order=sec.order,
+            )
+            db.add(section)
+            db.flush()
+
+        seen_section_ids.add(section.id)
+
+        existing_lessons = {l.id: l for l in section.lessons}
+        seen_lesson_ids = set()
+
+        for les in sec.lessons:
+            if les.id and les.id in existing_lessons:
+                lesson = existing_lessons[les.id]
+                lesson.title = les.title
+                lesson.type = les.type
+                lesson.youtube_url = les.youtube_url
+                lesson.pdf_url = les.pdf_url
+                lesson.order = les.order
+            else:
+                lesson = models.Lesson(
+                    section_id=section.id,
+                    title=les.title,
+                    type=les.type,
+                    youtube_url=les.youtube_url,
+                    pdf_url=les.pdf_url,
+                    order=les.order,
+                )
+                db.add(lesson)
+                db.flush()
+
+            seen_lesson_ids.add(lesson.id)
+
+        # delete removed lessons
+        for lid, lesson in existing_lessons.items():
+            if lid not in seen_lesson_ids:
+                db.delete(lesson)
+
+    # delete removed sections
+    for sid, section in existing_sections.items():
+        if sid not in seen_section_ids:
+            db.delete(section)
+
+    db.commit()
+    return {"ok": True}
 
 # Feedback
 
