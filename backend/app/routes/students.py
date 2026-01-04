@@ -72,20 +72,44 @@ def my_courses(
             "course_slug": c.slug,
             "course_description": c.description,
             "progress_percent": p,
+            "status": "completed" if p >= 100.0 else "enrolled",
+            "is_udemy": c.is_udemy,
+            "udemy_url": c.udemy_url,
         }
         for c, p in rows
     ]
 
 
 # Get course detail (with lessons and assessments, hiding correct answers)
-@router.get("/courses/{course_id}", response_model=schemas.CourseDetailOut)
+#@router.get("/courses/{course_id}", response_model=schemas.CourseDetailOut)
+@router.get("/courses/{course_id}", response_model=schemas.StudentCourseStateOut)
 def student_get_course_detail(course_id: int, current_user: models.User = Depends(require_role("student")), db: Session = Depends(get_db)):
+    # load course
     course = crud.get_course_by_id(db, course_id)
+    
     if not course:
         raise HTTPException(status_code=404, detail="Course not found")
+    # verify enrollment
+    enrolled = crud.is_user_enrolled(db, current_user.id, course_id)
+    if not enrolled:
+        return {
+            "is_enrolled": False,
+            "progress_percent": 0,
+            "completed_lesson_ids": []
+        }
+    # else load full detail
+    completed_lessons = crud.completed_lesson_ids_for_user(db, current_user.id, course_id)
+    return {
+
+        "is_enrolled": True,
+        "progress_percent": crud.course_progress_percent(db, current_user.id, course_id),
+        "completed_lesson_ids": completed_lessons,
+    }
+
+    
     # For student view, hide correct answers in assessments
     # Implement a helper to assemble full nested CourseDetail with choices but without is_correct flag.
-    return crud.get_course_detail_for_student(db, course_id, current_user.id)
+    #return crud.get_course_detail_for_student(db, course_id, current_user.id)
 
 
 # List assessments for a course (only if enrolled except for preview logic)

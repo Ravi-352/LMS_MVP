@@ -13,9 +13,14 @@ export default function SidebarLessons({ course, selectedLessonId, onSelect, isE
                 <li key={lesson.id}>
                   <button
                     onClick={() => { if (!locked) onSelect(lesson); }}
-                    className={`w-full text-left px-2 py-2 rounded ${selectedLessonId === lesson.id ? 'bg-gray-100' : 'hover:bg-gray-50'}`}
+                    className={`w-full text-left px-2 py-2 rounded 
+                      ${selectedLessonId === lesson.id ? 'bg-gray-100' : 'hover:bg-gray-50'}
+                      ${locked ? "opacity-50 cursor-not-allowed" : ""}
+                      `}
                   >
-                    {lesson.title} {locked ? <span className="text-sm text-gray-400">🔒</span> : null}
+                    {lesson.title}
+                    {lesson.is_completed && <span className="text-green-500 ml-2">✔</span>}
+                    {locked ? <span className="text-sm text-gray-400">🔒</span> : null}
                   </button>
                 </li>
               );

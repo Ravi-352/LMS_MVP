@@ -5,7 +5,8 @@ from app.core.config import settings
 from jose import jwt
 from pydantic import BaseModel
 
-router = APIRouter(prefix="/logs", tags=["Logging"])
+#router = APIRouter(prefix="/logs", tags=["Logging"])
+router = APIRouter()
 
 class LogEvent(BaseModel):
     message: str

@@ -151,8 +151,8 @@ class CourseCreate(BaseModel):
     #is_udemy: Optional[bool] = False
     is_udemy: bool = False
     udemy_url: Optional[str] = None
-    price_cents: Optional[int] = 0
-    currency: Optional[str] = "INR"
+    price_cents: Optional[int] = None
+    currency: Optional[str] = None
     #sections: Optional[List[SectionCreate]] = []
 
 #class CourseUpdate(CourseCreate):
@@ -257,10 +257,22 @@ class StudentCourseOut(BaseModel):
     course_slug: str
     course_description: Optional[str]
     progress_percent: float
+    status: str
+    is_udemy: bool
+    udemy_url: Optional[str]
 
     class Config:
         #from_attributes = True
         orm_mode = True
+
+class StudentCourseStateOut(BaseModel):
+    is_enrolled: bool
+    progress_percent: float
+    completed_lesson_ids: list[int]
+
+    class Config:
+        orm_mode = True
+
 
 
 class PublicCourseListOut(BaseModel):

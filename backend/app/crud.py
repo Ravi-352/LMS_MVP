@@ -126,7 +126,15 @@ def create_course_with_educator(db: Session, course_in: schemas.CourseCreate, ed
     slug = generate_unique_slug(db, course_in.title)
     # course = models.Course(title=course_in.title, slug=course_in.slug, description=course_in.description, is_udemy=course_in.is_udemy, udemy_url=course_in.udemy_url, educator_id=educator_id)
     
-    course = models.Course(title=course_in.title, slug=slug, description=course_in.description, is_udemy=course_in.is_udemy, udemy_url=course_in.udemy_url, educator_id=educator_id, price_cents=0, currency="INR")
+    #pricing rules
+    if course_in.is_udemy:
+        price_cents = 0
+        currency = None
+    else:
+        price_cents = course_in.price_cents if course_in.price_cents is not None else 0
+        currency = course_in.currency if course_in.currency is not None else "INR"
+
+    course = models.Course(title=course_in.title, slug=slug, description=course_in.description, is_udemy=course_in.is_udemy, udemy_url=course_in.udemy_url, educator_id=educator_id, price_cents=price_cents, currency=currency)
     
     db.add(course)
     db.commit()
@@ -256,6 +264,7 @@ def completed_lessons_for_user(db: Session, user_id: int, course_id: int) -> int
 
     return completed_lessons
 
+
 def calculate_and_update_progress(db: Session, user_id: int, course_id: int):
     total_lessons = course_total_lessons(db, course_id)
     completed = completed_lessons_for_user(db, user_id, course_id)
@@ -290,7 +299,18 @@ def mark_lesson_completed(db, user_id: int, lesson_id: int):
     db.refresh(sl)
     return sl
 
-
+def completed_lesson_ids_for_user(db: Session, user_id: int, course_id: int) -> list[int]:
+    lesson_ids = (
+        db.query(models.StudentLesson.lesson_id)
+        .join(models.Lesson, models.StudentLesson.lesson_id == models.Lesson.id)
+        .join(models.Section, models.Lesson.section_id == models.Section.id)
+        .filter(
+            models.StudentLesson.user_id == user_id,
+            models.Section.course_id == course_id
+        )
+        .all()
+    )
+    return [lid[0] for lid in lesson_ids]
 # ---------- Upsert helpers (create or update) ----------
 
 

@@ -12,6 +12,7 @@ export default function NewCoursePage() {
     description: "",
     is_udemy: false,
     udemy_url: "",
+    price_cents: "",
   });
 
   const handleChange = (e) => {
@@ -34,6 +35,7 @@ export default function NewCoursePage() {
       description: form.description,
       is_udemy: form.is_udemy,
       udemy_url: form.is_udemy ? form.udemy_url : null,
+      price_cents: form.is_udemy ? null : parseInt(form.price_cents) || 0,
     };
 
     try {
@@ -110,9 +112,20 @@ export default function NewCoursePage() {
             required
           />
         ) : (
-          <p className="text-sm text-gray-600">
-            After creating the course, you can add lessons, videos, PDFs and quizzes.
-          </p>
+          <>
+            <input
+                type="number"
+                name="price_cents"
+                placeholder="Price (INR)"
+                className="w-full border p-2 rounded"
+                value={form.price_cents}
+                onChange={handleChange}
+                min="0"
+              />
+            <p className="text-sm text-gray-600">
+              After creating the course, you can add lessons, videos, PDFs and quizzes.
+            </p>
+          </>
         )}
 
         <button className="w-full bg-primary text-white py-2 rounded">

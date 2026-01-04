@@ -4,7 +4,7 @@
 import { useState } from "react";
 import LessonEditor from "./LessonEditor";
 
-export default function SectionEditor({ section, onChange, onLessonAdd, onLessonDelete }) {
+export default function SectionEditor({ section, onChange, onLessonAdd, onDeleteLesson }) {
   const [editingIndex, setEditingIndex] = useState(null);
 
   function addLessonTemplate() {

@@ -266,10 +266,13 @@ export default function CourseBuilder({ courseId }) {
                     return next;
                   })
                 }
-                onLessonDelete={(lessonIdx) =>
+                onDeleteLesson={(lessonIdx) =>
                   setSections((prev) => {
                     const next = [...prev];
                     next[idx].lessons = next[idx].lessons.filter((_, i) => i !== lessonIdx);
+
+                    //keep order consistent
+                    next[idx].lessons.forEach((l, i) => (l.order = i));
                     return next;
                   })
                 }

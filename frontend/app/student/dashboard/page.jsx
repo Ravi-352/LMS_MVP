@@ -20,17 +20,33 @@ export default function StudentDashboard() {
         <p>No enrollments yet. Browse courses!</p>
       ) : (
         courses.map(c => (
-          <Link
-            key={c.course_id}
-            href={`/course/${c.course_slug}`}
-            className="block border rounded p-4 mt-2 hover:bg-gray-50"
-          >
-            <h2 className="font-semibold">{c.course_title}</h2>
-            <p className="text-sm">
-              Progress: {c.progress_percent}% — {c.status}
-            </p>
-          </Link>
-        ))
+            c.is_udemy ? (
+              <a
+                key={c.course_id}
+                href={c.udemy_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="block border rounded p-4 mt-2 hover:bg-gray-50"
+              >
+                <h2 className="font-semibold">{c.course_title}</h2>
+                <p className="text-sm">
+                  External course (Udemy)
+                </p>
+              </a>
+            ) : (
+              <Link
+                key={c.course_id}
+                href={`/course/${c.course_slug}`}
+                className="block border rounded p-4 mt-2 hover:bg-gray-50"
+              >
+                <h2 className="font-semibold">{c.course_title}</h2>
+                <p className="text-sm">
+                  Progress: {c.progress_percent}% — {c.status}
+                </p>
+              </Link>
+            )
+          ))
+
       )}
     </section>
   );
