@@ -387,12 +387,39 @@ class FeedbackCreate(BaseModel):
 class FeedbackOut(BaseModel):
     id: int
     rating: int
-    comment: Optional[str]
+    comment_markdown: Optional[str]
     user_id: int
     course_id: int
     created_at: datetime
+    user_name: Optional[str] = None
     class Config:
         orm_mode = True
+
+class FeedbackPublicOut(BaseModel):
+    id: int
+    rating: int
+    comment_markdown: Optional[str]
+    created_at: datetime
+    user_name: Optional[str] = None
+    class Config:
+        orm_mode = True
+
+class PublicFeedbackResponse(BaseModel):
+    avg_rating: Optional[float]
+    total_ratings: int
+    reviews: list[FeedbackPublicOut]
+
+class FeedbackStudentOut(BaseModel):
+    id: int
+    rating: Optional[int]
+    comment_markdown: Optional[str]
+    course_id: int
+    created_at: datetime
+
+    class Config:
+        orm_mode = True
+
+
 
 class OkResponse(BaseModel):
     ok: bool = True

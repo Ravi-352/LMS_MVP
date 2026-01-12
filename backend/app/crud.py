@@ -693,13 +693,13 @@ def upsert_feedback(db: Session, user_id: int, course_id: int, fb: schemas.Feedb
 
     if feedback:
         feedback.rating = fb.rating
-        feedback.comment = fb.comment_markdown
+        feedback.comment_markdown = fb.comment_markdown
     else:
         feedback = models.CourseFeedback(
             user_id=user_id,
             course_id=course_id,
             rating=fb.rating,
-            comment=fb.comment_markdown
+            comment_markdown=fb.comment_markdown
         )
         db.add(feedback)
 
@@ -708,17 +708,75 @@ def upsert_feedback(db: Session, user_id: int, course_id: int, fb: schemas.Feedb
     return feedback
 
 def list_feedback_for_course(db: Session, course_id: int, limit: int = 50, offset=0):
-    return db.query(models.CourseFeedback).filter_by(course_id=course_id).order_by(
-        models.CourseFeedback.created_at.desc()
-    ).offset(offset).limit(limit).all()
+    rows = (
+        db.query(models.CourseFeedback, models.User.full_name).join(models.User, models.User.id == models.CourseFeedback.user_id).filter(
+            models.CourseFeedback.course_id == course_id).filter(models.CourseFeedback.rating.isnot(None)).order_by(models.CourseFeedback.created_at.desc()).offset(offset).limit(limit).all()
+    )
+    #return db.query(models.CourseFeedback).filter_by(course_id=course_id).order_by(
+    #    models.CourseFeedback.created_at.desc()
+    #).offset(offset).limit(limit).all()
+    
+    return [
+        schemas.FeedbackOut(
+            id=fb.id,
+            rating=fb.rating,
+            comment_markdown=fb.comment_markdown,
+            created_at=fb.created_at,
+            user_name=full_name,
+            user_id=fb.user_id,
+            course_id=fb.course_id
+        )
+        for fb, full_name in rows
+    ]
 
 def get_feedback_summary(db: Session, course_id: int):
     from sqlalchemy import func
-    avg_rating = db.query(func.avg(models.CourseFeedback.rating)).filter_by(models.CourseFeedback.course_id == course_id, models.CourseFeedback.rating.isnot(None)).scalar()
-    count = db.query(models.CourseFeedback.id).filter_by(course_id=course_id).count()
+    avg_rating = db.query(func.avg(models.CourseFeedback.rating)).filter(models.CourseFeedback.course_id == course_id, models.CourseFeedback.rating.isnot(None)).scalar()
+    count = db.query(func.count(models.CourseFeedback.id)).filter(models.CourseFeedback.course_id == course_id).scalar()
     return {
         "avg_rating": round(avg_rating or 0, 2),
         "total_reviews": count
+    }
+
+
+def get_public_feedback(db: Session, course_id: int, limit: int = 10):
+    rows = (
+        db.query(models.CourseFeedback, models.User.full_name)
+        .join(models.User, models.User.id == models.CourseFeedback.user_id)
+        .filter(models.CourseFeedback.course_id == course_id)
+        .filter(models.CourseFeedback.rating.isnot(None))
+        .order_by(models.CourseFeedback.created_at.desc())
+        .limit(limit)
+        .all()
+    )
+
+    reviews = [
+        schemas.FeedbackPublicOut(
+            id=fb.id,
+            rating=fb.rating,
+            comment_markdown=fb.comment_markdown,
+            user_name=full_name,
+            created_at=fb.created_at
+        )
+        for fb, full_name in rows
+    ]
+
+    avg_rating = (
+        db.query(func.avg(models.CourseFeedback.rating))
+        .filter(models.CourseFeedback.course_id == course_id)
+        .scalar()
+    )
+
+    total = (
+        db.query(models.CourseFeedback.id)
+        .filter(models.CourseFeedback.course_id == course_id)
+        .count()
+    )
+
+    return {
+        "avg_rating": round(avg_rating or 0, 2),
+        "total_ratings": total,
+        "reviews": reviews
     }
 
 

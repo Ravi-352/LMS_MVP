@@ -5,7 +5,8 @@ import SidebarLessons from "@/components/SidebarLessons";
 import LessonPlayer from "@/components/LessonPlayer";
 import EnrollButton from "@/components/EnrollButton";
 import FeedbackForm from "@/components/FeedbackForm";
-import { apiFetch } from "@/lib/apiClient";
+import { apiFetch, apiFetchPublic } from "@/lib/apiClient";
+import PublicFeedback from "@/components/PublicFeedback";
 
 export default function CoursePage({ params }) {
   const { slug } = params;
@@ -161,6 +162,11 @@ export default function CoursePage({ params }) {
         <div className="md:col-span-2">
           <SidebarLessons course={course} selectedLessonId={selectedLesson?.id} onSelect={setSelectedLesson} isEnrolled={isEnrolled} />
         </div>
+        {/* to display feedback for non-udemy courses */}
+        <div className="md:col-span-5">
+          {!course.is_udemy && <PublicFeedback courseId={course.id} />}
+        </div>
+
       </div>
     </section>
   );

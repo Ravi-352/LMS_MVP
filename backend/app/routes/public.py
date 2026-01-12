@@ -36,10 +36,14 @@ def preview_course(slug: str, db: Session = Depends(get_db)):
     return {"course": course, "preview": first_lesson}
 
 
-@router.get("/courses/{course_id}/feedback")
+@router.get("/courses/{course_id}/feedback", response_model=schemas.PublicFeedbackResponse)
 def get_public_course_feedback(course_id: int,
                                db: Session = Depends(get_db)):
-    return {
-        "summary": crud.get_feedback_summary(db, course_id),
-        "reviews": crud.list_feedback_for_course(db, course_id)
-    }
+    course = crud.get_course_by_id(db, course_id)
+    if not course:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=404, detail="Course not found")
+    return crud.get_public_feedback(db, course_id)
+        #"summary": crud.get_feedback_summary(db, course_id),
+        #"reviews": crud.list_feedback_for_course(db, course_id)
+        

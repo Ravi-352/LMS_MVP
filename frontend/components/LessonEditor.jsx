@@ -127,7 +127,7 @@ export default function LessonEditor({ lesson = {}, onSave, onCancel }) {
 
         <div className="flex gap-2 justify-end mt-3">
           <button onClick={onCancel} className="px-3 py-1 border rounded">Cancel</button>
-          <button onClick={save} className="px-3 py-1 bg-primary-600 text-white rounded">Save lesson</button>
+          <button onClick={save} className="px-3 py-1 bg-green-600 text-white rounded">Save lesson</button>
         </div>
       </div>
     </div>

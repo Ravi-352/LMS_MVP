@@ -9,7 +9,7 @@ export default function FeedbackForm({ courseId, onSubmitted }) {
   const submit = async () => {
     setLoading(true);
     try {
-      const data = await apiFetch(`/students/courses/${courseId}/feedback`, { method: "POST", body: JSON.stringify({ rating, comment }) });
+      const data = await apiFetch(`/students/courses/${courseId}/feedback`, { method: "POST", body: JSON.stringify({ rating, comment_markdown: comment }) });
       alert("Thanks!");
       if (onSubmitted) onSubmitted(data);
     } catch (err) {
