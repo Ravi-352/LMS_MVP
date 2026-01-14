@@ -3,6 +3,7 @@ import Link from "next/link";
 import React, { useEffect, useState, useRef } from "react";
 import { useCurrentUser } from "@/lib/hooks/useCurrentUser";
 import { usePathname, useRouter } from "next/navigation";
+import { useAuth } from '@/lib/auth/AuthProvider';
 
 
 // inside component:
@@ -13,17 +14,26 @@ import { usePathname, useRouter } from "next/navigation";
 export default function Layout({ children }) {
   const pathname = usePathname();
   const router = useRouter();
+  const { user, isLoading } = useAuth();
+  const [open, setOpen] = useState(false); // MUST stay above any condition return
   const isProtected =
     pathname.startsWith("/student") ||
     pathname.startsWith("/instructor");
 
   // Always call hooks FIRST
   //const { user, isLoading } = isProtected ? useCurrentUser() : { user: null, isLoading: false };
-  const { user, isLoading } = useCurrentUser();
+  //const { user, isLoading } = useCurrentUser();
 
-  const [open, setOpen] = useState(false); // MUST stay above any condition return
-
+  // Redirect after Auth resolution
+  
   // Handle Loading States
+  // Redirect unauthenticated users on protected routes
+  useEffect(() => {
+    if (!isLoading && isProtected && !user) {
+      router.replace("/login");
+    }
+  }, [user, isLoading, isProtected, router]);
+
   // While checking for a user on a protected page, show a loader
   if (isProtected && isLoading) {
     return (
@@ -34,12 +44,7 @@ export default function Layout({ children }) {
     );
   }
 
-  // Redirect unauthenticated users on protected routes
-  useEffect(() => {
-    if (!isLoading && isProtected && !user) {
-      router.replace("/login");
-    }
-  }, [user, isLoading, isProtected, router]);
+  
 
   // Avoid rendering protected content briefly
   if (isProtected && !user) {

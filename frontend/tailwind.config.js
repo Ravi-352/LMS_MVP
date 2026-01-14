@@ -6,7 +6,12 @@ module.exports = {
     "./styles/**/*.{css}"
 
   ],
+  darkMode: "class",
   theme: {
+    container: {
+      center: true,
+      padding: "1rem",
+    },
     extend: {
       colors: {
         primary: {

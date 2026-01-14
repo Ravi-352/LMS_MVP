@@ -106,7 +106,8 @@ export async function apiFetch(endpoint, options = {}) {
   const PUBLIC_PATHS = ["/login", "/signup", "/public/courses"];
 
   
-  if (res.status === 401) {
+  //if (res.status === 401) {
+  if (res.status === 401 && !PUBLIC_PATHS.includes(endpoint)) {
   /*  if (typeof window !== "undefined" && !PUBLIC_PATHS.includes(window.location.pathname)) {
       window.location.href = "/login";
     }*/
@@ -116,6 +117,16 @@ export async function apiFetch(endpoint, options = {}) {
   const data = await parseJSONSafely(res);
   if (!res.ok) throw new Error(data?.detail || data?.message || data || "API Error");
   return data;
+}
+
+export async function loginWithPassword(email, password) {
+  const res = await apiFetch(`/auth/token`, {
+    method: "POST",
+    credentials: "include", // allow cookies to be set by backend
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email, password })
+  });
+  return res;;
 }
 
 export async function logout() {

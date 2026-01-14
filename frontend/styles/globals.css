@@ -2,11 +2,13 @@
 @tailwind components;
 @tailwind utilities;
 
-
 /* Tailwind base + some quick helpers and Udemy-like purple. */
 /* Base resets & custom utility */
 :root {
   --primary: #7c3aed;
+}
+html {
+  scroll-behavior: smooth;
 }
 body {
   @apply bg-gray-50 text-gray-900 antialiased;
