@@ -60,6 +60,9 @@ def get_current_user(request: Request, db: Session = Depends(get_db)) -> models.
     
     if not user:
         raise HTTPException(status_code=401, detail="User not found")
+    # ─── INJECT RUNTIME CONTEXT INTO THE ORM OBJECT ───
+    # Python allows adding attributes to object instances on the fly
+    user.active_role = active_role        
     
     return user
 
