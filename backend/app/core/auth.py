@@ -28,6 +28,12 @@ def decode_token(token: str) -> dict:
 #def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security), db=Depends(get_db)):
 def get_current_user(request: Request, db: Session = Depends(get_db)) -> models.User:
     token = request.cookies.get("access_token")
+    payload = decode_token(token)
+    user_id = int(payload.get("sub"))
+    active_role = payload.get("active_role", "student") # Default fallback
+    
+    # Attach the active session role to the request state
+    request.state.active_role = active_role
     # token = credentials.credentials
     if not token:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Not authenticated")
@@ -74,8 +80,17 @@ def require_role(role: str):
     Dependency factory that ensures current_user has given role.
     role: one of 'student', 'instructor', 'admin' (depends on your model)
     """
-    def _require_role(current_user: models.User = Depends(get_current_user)):
+    def _require_role(request: Request, current_user: models.User = Depends(get_current_user)):
         # we store boolean is_educator in user model; map to instructor
+        active_role = getattr(request.state, "active_role", "student")
+        
+        if active_role != role:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN, 
+                detail=f"Access denied. Active session role context must be '{role}'."
+            )
+        return current_user
+        
         if role == "student":
             # any authenticated user is a student unless blocked
             return current_user
