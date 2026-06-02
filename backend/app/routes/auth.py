@@ -39,7 +39,15 @@ def token(response: Response, user_in: schemas.LoginRequest, db: Session = Depen
     password = user_in.password
     if not security.verify_password(password, user.hashed_password):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials")
-    token = create_access_token({"sub": str(user.id)})
+
+    # We establish "student" as the default baseline context upon logging in
+    token_payload = {
+        "sub": str(user.id),
+        "active_role": "student" 
+    }
+    
+    #token = create_access_token({"sub": str(user.id)})
+    token = create_access_token(token_payload)
 
     csrf_token = secrets.token_urlsafe(32)
 
