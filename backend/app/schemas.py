@@ -104,6 +104,8 @@ class UserOut(BaseModel):
     email: EmailStr
     full_name: Optional[str]
     is_educator: bool
+    is_admin: bool = False # Added to support admin dashboard visibility rules
+    active_role: str       # Added to track if user is operating as 'student' or 'instructor'
 
     class Config:
         orm_mode = True
