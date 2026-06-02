@@ -89,6 +89,52 @@ def get_me(current_user: models.User = Depends(auth.get_current_user)):
     return current_user
 
 
+@router.post("/flip-role")
+def flip_role(
+    response: Response, 
+    request: Request, 
+    current_user: models.User = Depends(auth.get_current_user)
+):
+    """
+    Switches the user's active session context between Student and Instructor modes.
+    """
+    # 1. Determine current operating context from request state
+    current_context = getattr(request.state, "active_role", "student")
+    
+    # 2. Compute target context direction
+    target_context = "instructor" if current_context == "student" else "student"
+    
+    # 3. Security Guardrail: Verify eligibility if trying to access instructor mode
+    if target_context == "instructor" and not getattr(current_user, "is_educator", False):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, 
+            detail="You are not authorized as an instructor. Please register your ID proof first."
+        )
+        
+    # 4. Generate a fresh access token embedded with the new active context
+    new_payload = {
+        "sub": str(current_user.id),
+        "active_role": target_context
+    }
+    new_token = create_access_token(new_payload)
+    
+    # 5. Drop the fresh cookie over the old one
+    cookie_params = {
+        "httponly": True,
+        "secure": settings.COOKIE_SECURE,
+        "samesite": settings.COOKIE_SAMESITE,
+        "path": "/",
+    }
+    
+    response.set_cookie(
+        key="access_token",
+        value=new_token,
+        max_age=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
+        **cookie_params
+    )
+    
+    return {"message": "Role context switched successfully", "active_role": target_context}
+    
 
 @router.post("/logout")
 def logout(response: Response):
