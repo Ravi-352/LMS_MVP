@@ -28,20 +28,13 @@ def decode_token(token: str) -> dict:
 #def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security), db=Depends(get_db)):
 def get_current_user(request: Request, db: Session = Depends(get_db)) -> models.User:
     token = request.cookies.get("access_token")
-    payload = decode_token(token)
-    user_id = int(payload.get("sub"))
-    active_role = payload.get("active_role", "student") # Default fallback
-    
-    # Attach the active session role to the request state
-    request.state.active_role = active_role
-    # token = credentials.credentials
     if not token:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Not authenticated")
     
     # Some setups send cookies like: "Bearer eyJhbGciOi..."
     if token.startswith("Bearer "):
         token = token.split(" ")[1]
-
+        
 
     try:
         payload = decode_token(token)
@@ -51,6 +44,10 @@ def get_current_user(request: Request, db: Session = Depends(get_db)) -> models.
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid authentication payload")
     
         user_id = int(sub)
+
+        # EXTRACT & INJECT TO REQUEST STATE ───
+        active_role = payload.get("active_role", "student") # fallback safely to student
+        request.state.active_role = active_role
 
     except ExpiredSignatureError:
         raise HTTPException(status_code=401, detail="Token expired")
