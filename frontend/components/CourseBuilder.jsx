@@ -18,8 +18,11 @@ import { toast } from "react-hot-toast";
  *  - Autosave (debounced) and manual Save (PUT)
  */
 
+
+
 export default function CourseBuilder({ courseId }) {
   const { data: serverCourse, mutate: mutateCourse } = useSWR(courseId ? `/instructor/courses/${courseId}` : null);
+
 
   /** ---------------------------
    * State separation (CRITICAL)
@@ -35,7 +38,10 @@ export default function CourseBuilder({ courseId }) {
   /** ---------------------------
    * Initialize from server
    * --------------------------*/
+  console.log("CourseBuilder render, courseId =", courseId);
   useEffect(() => {
+
+    console.log("Initializing CourseBuilder state from serverCourse:", serverCourse);
     if (!serverCourse) return;
 
     setCourseMeta({
@@ -98,7 +104,7 @@ export default function CourseBuilder({ courseId }) {
         body: JSON.stringify(payload),
       });
 
-      await mutate(); // refresh server copy
+      await mutateCourse(); // refresh server copy
     } catch (err) {
       console.error(err);
       setError(err.message || "Save failed");

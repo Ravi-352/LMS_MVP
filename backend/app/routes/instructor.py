@@ -1,4 +1,5 @@
 # backend/app/routes/instructors.py
+import datetime
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 from app.db.sessions import get_db
@@ -15,7 +16,7 @@ router = APIRouter()
 
 #@router.put("/courses/{course_id}")
 #def update_course(course_id: int, course: schemas.CourseCreate, current_user: models.User = Depends(require_role("instructor")), db: Session = Depends(get_db)):
-#    existing = crud.get_course_by_id(db, course_id)
+#    existing = crud.get_course_by_id_internal(db, course_id)
 #    if not existing or existing.educator_id != current_user.id:
 #        raise HTTPException(status_code=403, detail="Not allowed")
 #    return crud.update_course(db, course_id, course)
@@ -24,7 +25,7 @@ router = APIRouter()
 @router.post("/courses", response_model=schemas.CourseDetailOut)
 def create_course(course_in: schemas.CourseCreate, current_user: models.User = Depends(require_role("instructor")), db: Session = Depends(get_db), _csrf=Depends(verify_csrf)):
     course = crud.create_course_with_educator(db, course_in, educator_id=current_user.id)
-    return crud.get_course_by_id(db, course.id)
+    return crud.get_course_by_id_internal(db, course.id)
 
 
 #@router.get("/courses", response_model=list[schemas.CourseDetailOut])
@@ -42,7 +43,7 @@ def create_section(
     db: Session = Depends(get_db),
     _csrf=Depends(verify_csrf)
 ):
-    course = crud.get_course_by_id(db, course_id)
+    course = crud.get_course_by_id_internal(db, course_id)
     if not course or course.educator_id != current_user.id:
         raise HTTPException(403, "Not allowed")
 
@@ -59,7 +60,7 @@ def create_section(
 
 @router.put("/courses/{course_id}", response_model=schemas.CourseDetailOut)
 def update_course(course_id: int, course_in: schemas.CourseUpdate, current_user: models.User = Depends(require_role("instructor")), db: Session = Depends(get_db), _csrf=Depends(verify_csrf)):
-    course = crud.get_course_by_id(db, course_id)
+    course = crud.get_course_by_id_internal(db, course_id)
     if not course:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Course not found")
     if course.educator_id != current_user.id:
@@ -71,7 +72,7 @@ def update_course(course_id: int, course_in: schemas.CourseUpdate, current_user:
     if not updated:
         raise HTTPException(status_code=404, detail="Course not found after update")
     # return nested detail (APEX)
-    return crud.get_course_by_id(db, course_id)
+    return crud.get_course_by_id_internal(db, course_id)
 
 @router.put("/courses/{course_id}/structure", response_model=schemas.OkResponse)
 def update_course_structure(
@@ -81,7 +82,7 @@ def update_course_structure(
     db: Session = Depends(get_db),
     _csrf=Depends(verify_csrf),
 ):
-    course = crud.get_course_by_id(db, course_id)
+    course = crud.get_course_by_id_internal(db, course_id)
     if not course or course.educator_id != current_user.id:
         raise HTTPException(403, "Not allowed")
 
@@ -97,18 +98,19 @@ def update_course_structure(
 def get_course_detail(course_id: int,
                       current_user: models.User = Depends(require_role("instructor")),
                       db: Session = Depends(get_db)):
-    course = crud.get_course_by_id(db, course_id)
+    course = crud.get_course_by_id_internal(db, course_id)
     if not course:
         raise HTTPException(404, "Course not found")
     if course.educator_id != current_user.id:
         raise HTTPException(403, "Not allowed")
     return course
 
+
 @router.get("/courses/{course_id}/lessons", response_model=list[schemas.LessonOut])
 def list_course_lessons(course_id: int,
                         current_user: models.User = Depends(require_role("instructor")),
                         db: Session = Depends(get_db)):
-    course = crud.get_course_by_id(db, course_id)
+    course = crud.get_course_by_id_internal(db, course_id)
     if not course:
         raise HTTPException(status_code=404, detail="Course not found")
     if course.educator_id != current_user.id:
@@ -132,7 +134,7 @@ def create_course_lesson(course_id: int, payload: schemas.LessonCreate,
       "assessments": [ ... optional assessments dicts ... ]
     }
     """
-    course = crud.get_course_by_id(db, course_id)
+    course = crud.get_course_by_id_internal(db, course_id)
     if not course:
         raise HTTPException(status_code=404, detail="Course not found")
     if course.educator_id != current_user.id:
@@ -179,7 +181,7 @@ def instructor_create_assessment(course_id: int, payload: dict, current_user: mo
     }
     """
     # validate course ownership
-    course = crud.get_course_by_id(db, course_id)
+    course = crud.get_course_by_id_internal(db, course_id)
     if course.educator_id != current_user.id:
         raise HTTPException(status_code=403, detail="Not allowed. You are not the educator of this course.")
     a_in = schemas.AssessmentCreate(
@@ -200,11 +202,13 @@ def instructor_create_assessment(course_id: int, payload: dict, current_user: mo
 # call crud.list_enrollments_for_course(db, course_id) that returns user_id, user.email, progress_percent, status
 
 #@router.get("/courses/{course_id}/students", response_model=list[dict])
+
+
 @router.get("/courses/{course_id}/students")
 def get_enrolled_students(course_id: int,
                           current_user: models.User = Depends(require_role("instructor")),
                           db: Session = Depends(get_db)):
-    course = crud.get_course_by_id(db, course_id)
+    course = crud.get_course_by_id_internal(db, course_id)
     if not course:
         raise HTTPException(status_code=404, detail="Course not found")
     if course.educator_id != current_user.id:
@@ -212,27 +216,12 @@ def get_enrolled_students(course_id: int,
     return crud.list_enrollments_for_course(db, course_id)
 
 
-
-#@router.get("/courses/{course_id}/students")
-#def list_students(course_id: int, current_user: models.User = Depends(require_role("instructor")), db: Session = Depends(get_db)):
-#    course = crud.get_course_by_id(db, course_id)
-#    if not course:
-#        raise HTTPException(status_code=404, detail="Course not found")
-#    if course.educator_id != current_user.id:
-#        raise HTTPException(status_code=403, detail="Not allowed")
-#    return crud.list_enrollments_for_course(db, course_id)
-
-# if required also create - 
-# #GET /courses/{course_id}/students/{user_id}/progress returns detailed progress + lesson completion list (for review/grading)
-
-# checking own courses
-
 @router.get("/courses/{course_id}/feedback")
 def instructor_view_feedback(course_id: int,
                              current_user: models.User = Depends(require_role("instructor")),
                              db: Session = Depends(get_db)):
 
-    course = crud.get_course_by_id(db, course_id)
+    course = crud.get_course_by_id_internal(db, course_id)
     if not course:
         raise HTTPException(404, "Course not found")
     if course.educator_id != current_user.id:
@@ -242,3 +231,31 @@ def instructor_view_feedback(course_id: int,
         "summary": crud.get_feedback_summary(db, course_id),
         "reviews": crud.list_feedback_for_course(db, course_id)
     }
+
+@router.get("/courses/{course_id}/stats")
+def get_course_stats(course_id: int,
+                     current_user: models.User = Depends(require_role("instructor")),
+                     db: Session = Depends(get_db)):
+    course = crud.get_course_by_id_internal(db, course_id)
+    if not course:
+        raise HTTPException(404, "Course not found")
+    if course.educator_id != current_user.id:
+        raise HTTPException(403, "Not allowed")
+    status = crud.get_instructor_course_stats(db, instructor_id=current_user.id, course_id=course_id)
+
+    if not status:
+        raise HTTPException(404, "Statistics not found")
+    return status
+
+
+@router.put("/instructor/courses/{id}/publish")
+def publish_course(id: int, current_user: models.User = Depends(require_role("instructor")), db: Session = Depends(get_db)):
+    course = crud.get_course_by_id_internal(db, id)
+    if not course:
+        raise HTTPException(404, "Course not found")
+    if course.educator_id != current_user.id:
+        raise HTTPException(403, "Not allowed")
+    course.is_published = True
+    course.published_at = datetime.utcnow()
+    db.commit()
+    return crud.publish_course(db, id)

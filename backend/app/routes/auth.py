@@ -8,6 +8,15 @@ from app.core.config import settings
 from app.core import security, auth
 from pydantic import SecretStr
 from passlib.context import CryptContext
+from datetime import datetime, timezone
+import hashlib
+from pydantic.networks import EmailStr
+from app.utils.email import send_mail
+from app.core.security import hash_password
+from app.schemas import ForgotPasswordRequest, ResetPasswordRequest
+import hashlib
+from slowapi import Limiter
+from app.main import limiter
 
 router = APIRouter()
 
@@ -19,6 +28,7 @@ def create_access_token(data: dict, expires_in=3600):
     return token
 
 @router.post("/signup", response_model=schemas.UserOut)
+@limiter.limit("3/60minutes")
 def signup(user_in: schemas.UserCreate, db: Session = Depends(get_db)):
     existing = crud.get_user_by_email(db, user_in.email)
     if existing:
@@ -26,7 +36,71 @@ def signup(user_in: schemas.UserCreate, db: Session = Depends(get_db)):
     user = crud.create_user(db, user_in)
     return user
 
+
+@router.post("/forgot-password")
+@limiter.limit("3/60minutes")
+def forgot_password(
+    payload: ForgotPasswordRequest,
+    #background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db)):
+    email = payload.email
+
+    user = crud.get_user_by_email(db, email)
+    if not user:
+        return {"message": "If the email is registered, a reset token has been sent"}
+    
+
+    token_raw = crud.create_password_reset_token(db, user.id)
+    reset_link = f"{settings.FRONTEND_URL}/reset-password?token={token_raw}"
+
+
+    # send email with reset_token (implement email sending logic here)
+    send_mail(
+        to=email,
+        subject="Password Reset Request",
+        body=f"Click the link to reset your password: {reset_link}\n\n"
+                f"This link will expire in 30 minutes."
+    )
+    return {"message": "If the email is registered, a reset token has been sent"}
+
+@router.post("/reset-password")
+def reset_password(payload: ResetPasswordRequest, db: Session = Depends(get_db)):
+    
+    #user = crud.get_user_by_email(db, email)
+    #if not user:
+    #    raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid token or email")
+    #hash token from payload
+
+    if len(payload.new_password) < 8:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Password must be at least 8 characters long")
+
+    token_hash = hashlib.sha256(payload.token.encode()).hexdigest()
+
+    # find  valid token
+    prt = db.query(models.PasswordResetToken).filter(
+        models.PasswordResetToken.token_hash == token_hash,
+        models.PasswordResetToken.is_used == False,
+        models.PasswordResetToken.expires_at > datetime.now(timezone.utc),
+    ).first()
+    if not prt:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid or expired token")
+    
+    # Load user associated with token
+    user = db.query(models.User).filter(models.User.id == prt.user_id).first()
+    if not user:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid token")
+    
+    # Update password
+    user.hashed_password = hash_password(payload.new_password)
+
+    # Mark token as used
+    prt.is_used = True
+    db.commit()
+    
+    return {"message": "Password has been reset successfully"}
+
 @router.post("/token")
+@limiter.limit("3/60minutes")
 def token(response: Response, user_in: schemas.LoginRequest, db: Session = Depends(get_db)):
 #def token(response: Response, user_in: schemas.UserCreate, db: Session = Depends(get_db)):
     """Authenticate and set HttpOnly access_token cookie + csrf_token cookie (double-submit)."""

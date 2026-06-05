@@ -3,6 +3,7 @@ import { apiFetch, loginWithPassword } from "@/lib/apiClient";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth/AuthProvider";
+import Link from "next/link";
 //import { mutate } from "swr";
 
 
@@ -80,6 +81,11 @@ export default function LoginPage() {
         <input className="w-full p-2 border rounded" placeholder="Email" value={email} onChange={e=>setEmail(e.target.value)} required/>
         <input type="password" className="w-full p-2 border rounded" placeholder="Password" value={password} onChange={e=>setPassword(e.target.value)} required />
         {errorMessage && <p className="text-red-500">{errorMessage}</p>}
+        <div className="mb-4 text-sm">
+          <Link href="/forgot-password" className="text-blue-500 hover:underline">
+            Forgot password?
+          </Link>
+        </div>
         <div><button className="w-full bg-primary-500 text-white py-2 rounded">{loading ? "Signing in..." : "Sign in"}</button></div>
       </form>
     </div>

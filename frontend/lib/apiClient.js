@@ -103,7 +103,7 @@ export async function apiFetch(endpoint, options = {}) {
   const url = endpoint.startsWith("/") ? `${API_BASE}${endpoint}` : `${API_BASE}/${endpoint}`;
   // const res = await fetch(url, { ...options, headers, credentials: "include", fetchOptions });
   const res = await fetch(url, { ...options, headers, credentials: "include"});
-  const PUBLIC_PATHS = ["/login", "/signup", "/public/courses"];
+  const PUBLIC_PATHS = ["/auth/token", "/auth/signup", "/courses", "/auth/forgot-password", "/reset-password"];
 
   
   //if (res.status === 401) {

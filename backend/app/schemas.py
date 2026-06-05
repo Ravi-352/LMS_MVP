@@ -427,6 +427,16 @@ class OkResponse(BaseModel):
     ok: bool = True
 
 
+class ForgotPasswordRequest(BaseModel):
+    email: EmailStr
+
+class ResetPasswordRequest(BaseModel):
+    token: str
+    #email: EmailStr
+    new_password: str
+
+
+
 # ---- Forward Reference Fix ----
 LessonCreate.update_forward_refs()
 LessonOut.update_forward_refs()

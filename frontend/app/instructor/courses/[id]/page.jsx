@@ -12,6 +12,7 @@ import { useEffect, useState } from "react";
 export default function InstructorCourseEditPage() {
   const { id } = useParams();
   const [feedback, setFeedback] = useState(null);
+  const [stats, setStats] = useState(null);
   
   useEffect(() => {
     async function loadFeedback() {
@@ -27,11 +28,30 @@ export default function InstructorCourseEditPage() {
     loadFeedback();
   }, [id]);
 
+  useEffect(() => {
+    async function loadStats() {
+      try {
+        const res = await apiFetch(`/instructor/courses/${id}/stats`);
+        setStats(res);
+      } catch (error) {
+        console.error("Failed to load stats:", error);
+      }
+    }
+    if (id) { loadStats(); }
+  }, [id]);
 
   return (
     <section>
       <div className="max-w-5xl mx-auto px-4 py-6">
         <CourseBuilder courseId={id} />
+      </div>
+      <div className="max-w-5xl mx-auto px-4 py-6">
+        <div className="mb-4">
+          <p className="text-lg font-medium text-gray-700">
+            Total Students Enrolled: {stats ? stats.enrollment_count : "Loading..."}
+          </p>
+          
+        </div>
       </div>
       <div className="max-w-5xl mx-auto px-4 py-6">
         <h2 className="text-xl font-bold mb-4">Student Feedback</h2>

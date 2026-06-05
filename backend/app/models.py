@@ -43,8 +43,10 @@ class Course(Base):
     udemy_url = Column(String, nullable=True)
     price_cents = Column(Integer, default=0, nullable=False)
     currency = Column(String(3), default="INR", nullable=False)
+
      # optional
-    is_published = Column(Boolean, default=True)
+    is_published = Column(Boolean, default=False, index=True, nullable=False)
+    published_at = Column(DateTime(timezone=True), nullable=True)
     #created_at = Column(DateTime(timezone=True), default=datetime.now(timezone.utc))
     #created_at = Column(DateTime(timezone=True), server_default=func.now())
     created_at = Column(DateTime(timezone=True), server_default=text("NOW()"))
@@ -214,3 +216,15 @@ class Payment(Base):
             name="uq_payment_user_course_status"
         ),
     )
+
+class PasswordResetToken(Base):
+    __tablename__ = "password_reset_tokens"
+    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    token_hash = Column(String, nullable=False, index=True, unique=True)
+    is_used = Column(Boolean, default=False)
+    created_at = Column(DateTime(timezone=True), server_default=text("NOW()"))
+    expires_at = Column(DateTime(timezone=True), nullable=False)
+
+    #relationship
+    user = relationship("User", backref="password_reset_tokens")

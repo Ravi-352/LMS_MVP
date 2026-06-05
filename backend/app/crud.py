@@ -1,3 +1,4 @@
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, joinedload
 from app import models, schemas
 from sqlalchemy import func
@@ -7,11 +8,21 @@ from fastapi import HTTPException, status
 from datetime import timezone
 from app.core import security
 from slugify import slugify
+import secrets, hashlib
+from datetime import timedelta
+import logging
+
+# Using __name__ is a production best-practice. It automatically namespaces 
+# your logs to the actual file path (e.g., "app.crud.enrollment"), 
+# making it incredibly easy to track down exactly where an error dropped.
+logger = logging.getLogger(__name__)
 
 # creates a password hashing helper using the bcrypt algorithm
 # deprecated="auto" ensures compatibility with future versions, If I ever change hashing algorithms later, automatically treat the older ones as deprecated.
 # But Passlib will detect the old hash and re-hash the password with the new algorithm on next login
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
+RESET_TOKEN_EXPIRY_MINUTES = 30
 
 
 def create_user(db: Session, user: schemas.UserCreate):
@@ -24,7 +35,13 @@ def create_user(db: Session, user: schemas.UserCreate):
 def get_user_by_email(db: Session, email: str):
     return db.query(models.User).filter(models.User.email == email).first()
 
-
+def create_password_reset_token(db: Session, user_id: int):
+    token_raw = secrets.token_urlsafe(32)
+    token_hash = hashlib.sha256(token_raw.encode()).hexdigest()
+    expires_at = datetime.now(timezone.utc) + timedelta(minutes=RESET_TOKEN_EXPIRY_MINUTES)
+    prt = models.PasswordResetToken(user_id=user_id, token_hash=token_hash, is_used=False, expires_at=expires_at)
+    db.add(prt); db.commit(); db.refresh(prt)
+    return token_raw  # return the plain token to be sent via email
 
 def create_course(db: Session, course_in: schemas.CourseCreate):
     course = models.Course(title=course_in.title, slug=course_in.slug, description=course_in.description,
@@ -65,17 +82,43 @@ def list_instructor_courses(db, instructor_id):
 
 
 # ---------- helper lookups ----------
-def get_course_by_id(db: Session, course_id: int):
+def get_course_by_id_internal(db: Session, course_id: int):
     return db.query(models.Course).options(
         joinedload(models.Course.sections).joinedload(models.Section.lessons).joinedload(models.Lesson.assessments).joinedload(models.Assessment.choices)
     ).filter(models.Course.id == course_id).first()
+
+def get_published_course_by_id(db: Session, course_id: int):
+    return (
+        db.query(models.Course)
+        .options(
+            joinedload(models.Course.sections)
+            .joinedload(models.Section.lessons)
+            .joinedload(models.Lesson.assessments)
+            .joinedload(models.Assessment.choices)
+        )
+        .filter(
+            models.Course.id == course_id,
+            models.Course.is_published == True
+        )
+        .first()
+    )
 
 
 #def get_course_by_id(db, course_id: int):
 #    return db.query(models.Course).get(course_id)
 
-def get_course_by_slug(db: Session, slug: str):
-    return db.query(models.Course).filter(models.Course.slug == slug).first()
+def get_published_course_by_slug(db: Session, slug: str):
+    return (
+        db.query(models.Course)
+        .filter(
+            models.Course.slug == slug,
+            models.Course.is_published == True
+        )
+        .first()
+    )
+
+#def get_course_by_slug(db: Session, slug: str):
+#    return db.query(models.Course).filter(models.Course.slug == slug).first()
 
 def get_lesson(db: Session, lesson_id: int):
     return db.query(models.Lesson).get(lesson_id)
@@ -85,7 +128,9 @@ def lesson_belongs_to_course(db: Session, lesson_id: int, course_id: int) -> boo
     lesson = get_lesson(db, lesson_id)
     if not lesson:
         return False
-    return lesson.section.course_id == course_id
+    #return lesson.section.course_id == course_id
+    result = db.query(models.Lesson).join(models.Section).filter(models.Lesson.id == lesson_id, models.Section.course_id == course_id).exists().scalar()
+    return result
 
 def is_user_enrolled(db: Session, user_id: int, course_id: int) -> bool:
     e = db.query(models.Enrollment).filter_by(user_id=user_id, course_id=course_id).first()
@@ -104,12 +149,25 @@ def is_preview_lesson(db: Session, lesson_id: int) -> bool:
     return first_lesson and first_lesson.id == lesson_id
 
 def enroll_user(db: Session, user_id: int, course_id: int):
-    e = db.query(models.Enrollment).filter(models.Enrollment.user_id==user_id, models.Enrollment.course_id==course_id).first()
-    if e:
+    
+    try:
+        e = models.Enrollment(user_id=user_id, course_id=course_id, progress_percent=0.0)
+        db.add(e); db.commit(); db.refresh(e)
         return e
-    e = models.Enrollment(user_id=user_id, course_id=course_id, progress_percent=0.0)
-    db.add(e); db.commit(); db.refresh(e)
-    return e
+    except IntegrityError:
+        db.rollback() #essential to rollback the failed transaction before next operations
+        #gracefull fallback to returning the record that won the race
+        e = db.query(models.Enrollment).filter(models.Enrollment.user_id==user_id, models.Enrollment.course_id==course_id).first()
+        return e
+    except Exception as unexpected_err:
+        # Tier 3: Global System Failure Catch-all
+        db.rollback()
+        logger.critical(f"System panic during user enrollment: {str(unexpected_err)}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="An unexpected system error occurred."
+        )
+    
 
 def update_progress(db: Session, user_id: int, course_id: int, progress: float):
     e = db.query(models.Enrollment).filter(models.Enrollment.user_id==user_id, models.Enrollment.course_id==course_id).first()
@@ -137,28 +195,18 @@ def create_course_with_educator(db: Session, course_in: schemas.CourseCreate, ed
     course = models.Course(title=course_in.title, slug=slug, description=course_in.description, is_udemy=course_in.is_udemy, udemy_url=course_in.udemy_url, educator_id=educator_id, price_cents=price_cents, currency=currency)
     
     db.add(course)
-    db.commit()
-    db.refresh(course)
+    db.flush() # flush to get course.id for sections, but not commit yet for atomicity
+    #db.commit()
+    #db.refresh(course)
     
     # create default section for self-hosted courses
 
     if not course.is_udemy:
         sec = models.Section(course_id=course.id, title="Introduction", order=0)
         db.add(sec)
-        db.commit()
-        db.refresh(sec)
+    db.commit()
+    db.refresh(sec)
 
-    # create sections/lessons if present
-    #for s_idx, s in enumerate(course_in.sections or []):
-    #    sec = models.Section(course_id=course.id, title=s.title, order=s_idx)
-    #    db.add(sec)
-    #    db.commit()
-    #    db.refresh(sec)
-    #    for l_idx, l in enumerate(s.lessons or []):
-    #        lesson = models.Lesson(section_id=sec.id, title=l.title, type=l.type,
-    #                               youtube_url=l.youtube_url, pdf_url=l.pdf_url, order=l_idx)
-    #        db.add(lesson)
-    #    db.commit()
     return course
 
 
@@ -519,7 +567,7 @@ def update_course_full(db: Session, course_id: int, course_in: dict, educator_id
 
     # Refresh and return full course detail
     db.refresh(course)
-    return get_course_by_id(db, course_id)  # returns joined load nested object
+    return get_course_by_id_internal(db, course_id)  # returns joined load nested object
 
 def create_default_section(db: Session, course_id: int, title: str = "Section 1"):
     """Create and return a default/first section for course if none exists."""
@@ -739,6 +787,21 @@ def get_feedback_summary(db: Session, course_id: int):
     }
 
 
+def get_instructor_course_stats(db: Session, instructor_id: int, course_id: int):
+    #ownership courses
+    course = db.query(models.Course).filter(models.Course.id == course_id, models.Course.educator_id == instructor_id).first()
+    if not course:
+        print("Course :" + course_id + " not found or not owned by instructor")
+        return None
+    enrollment_count = db.query(func.count(models.Enrollment.id)).filter(models.Enrollment.course_id == course_id).scalar()
+    #feedback_count = db.query(func.count(models.CourseFeedback.id)).filter(models.CourseFeedback.course_id == course_id).scalar()
+    #avg_rating = db.query(func.avg(models.CourseFeedback.rating)).filter(models.CourseFeedback.course_id == course_id, models.CourseFeedback.rating.isnot(None)).scalar()
+    #feedback_list = list_feedback_for_course(db, course_id, limit=5, offset=0)
+    return {
+        "enrollment_count": enrollment_count
+    }
+    
+
 def get_public_feedback(db: Session, course_id: int, limit: int = 10):
     rows = (
         db.query(models.CourseFeedback, models.User.full_name)
@@ -778,6 +841,8 @@ def get_public_feedback(db: Session, course_id: int, limit: int = 10):
         "total_ratings": total,
         "reviews": reviews
     }
+
+
 
 
 def get_successful_payment(db: Session, user_id: int, course_id: int):

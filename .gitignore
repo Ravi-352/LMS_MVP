@@ -6,8 +6,10 @@
 .env
 .env.*    # Covers .env.local, .env.production, etc.
 
+
 # ---- Python Backend (FastAPI) ----
 __pycache__/
+__pycache__
 *.pyc
 *.pyo
 *.pyd
@@ -40,9 +42,7 @@ yarn-error.log*
 .pnp/
 .pnp.js
 
-# Next.js build
-.next/
-out/
+
 # Static export manifest
 export-*
 

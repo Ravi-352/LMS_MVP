@@ -17,11 +17,13 @@ export default function RootLayout({ children }) {
       <body>
      {/*   <SWRProvider> {/* <-- Wrap children with the SWR Provider */}
           <AuthProvider>
-            <Layout>
-              {children}
-            </Layout>
+            <SWRProvider>
+              <Layout>
+                {children}
+              </Layout>
+            </SWRProvider>
           </AuthProvider>
-      {/*  </SWRProvider> */}
+      
         <Toaster position="top-right" />
       </body>
     </html>
