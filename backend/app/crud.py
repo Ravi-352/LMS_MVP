@@ -1,5 +1,5 @@
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy.orm import Session, joinedload
+from sqlalchemy.orm import Session, joinedload, selectinload
 from app import models, schemas
 from sqlalchemy import func
 from passlib.context import CryptContext
@@ -11,6 +11,7 @@ from slugify import slugify
 import secrets, hashlib
 from datetime import timedelta
 import logging
+import re
 
 # Using __name__ is a production best-practice. It automatically namespaces 
 # your logs to the actual file path (e.g., "app.crud.enrollment"), 
@@ -46,18 +47,24 @@ def create_password_reset_token(db: Session, user_id: int):
 def create_course(db: Session, course_in: schemas.CourseCreate):
     course = models.Course(title=course_in.title, slug=course_in.slug, description=course_in.description,
                            is_udemy=course_in.is_udemy, udemy_url=course_in.udemy_url)
-    db.add(course); db.commit(); db.refresh(course)
+    db.add(course); 
+    db.flush()  # Secure the ID without writing a permanent commit yet
+    #db.commit(); db.refresh(course)
     # # Only create sections and lessons for non-udemy courses
     if not course.is_udemy:
 
         for s_idx, s in enumerate(course_in.sections or []):
             sec = models.Section(course_id=course.id, title=s.title, order=s_idx)
-            db.add(sec); db.commit(); db.refresh(sec)
+            db.add(sec); 
+            db.flush()  # Secure the section ID for downstream lessons safely
+            #db.commit(); db.refresh(sec)
             for l_idx, l in enumerate(s.lessons or []):
                 lesson = models.Lesson(section_id=sec.id, title=l.title, type=l.type,
                                     youtube_url=l.youtube_url, pdf_url=l.pdf_url, order=l_idx)
                 db.add(lesson)
-            db.commit()
+                db.flush()  # Secure the lesson ID for downstream assessments safely
+    db.commit()
+    db.refresh(course)
     return course
 
 def list_courses(db: Session, skip=0, limit=50):
@@ -83,18 +90,33 @@ def list_instructor_courses(db, instructor_id):
 
 # ---------- helper lookups ----------
 def get_course_by_id_internal(db: Session, course_id: int):
-    return db.query(models.Course).options(
-        joinedload(models.Course.sections).joinedload(models.Section.lessons).joinedload(models.Lesson.assessments).joinedload(models.Assessment.choices)
-    ).filter(models.Course.id == course_id).first()
-
-def get_published_course_by_id(db: Session, course_id: int):
+    """
+    Uses selectinload execution strategies to build structural entity trees.
+    Avoids Cartesian network wire payload bloat caused by standard joinedload queries.
+    """
     return (
         db.query(models.Course)
         .options(
-            joinedload(models.Course.sections)
-            .joinedload(models.Section.lessons)
-            .joinedload(models.Lesson.assessments)
-            .joinedload(models.Assessment.choices)
+            selectinload(models.Course.sections)
+            .selectinload(models.Section.lessons)
+            .selectinload(models.Lesson.assessments)
+            .selectinload(models.Assessment.choices)
+        )
+        .filter(models.Course.id == course_id)
+        .first()
+    )
+
+def get_published_course_by_id(db: Session, course_id: int):
+    """
+    Fixed Cartesian product issue by migrating execution from joinedload to selectinload.
+    """
+    return (
+        db.query(models.Course)
+        .options(
+            selectinload(models.Course.sections)
+            .selectinload(models.Section.lessons)
+            .selectinload(models.Lesson.assessments)
+            .selectinload(models.Assessment.choices)
         )
         .filter(
             models.Course.id == course_id,
@@ -102,7 +124,6 @@ def get_published_course_by_id(db: Session, course_id: int):
         )
         .first()
     )
-
 
 #def get_course_by_id(db, course_id: int):
 #    return db.query(models.Course).get(course_id)
@@ -204,8 +225,12 @@ def create_course_with_educator(db: Session, course_in: schemas.CourseCreate, ed
     if not course.is_udemy:
         sec = models.Section(course_id=course.id, title="Introduction", order=0)
         db.add(sec)
-    db.commit()
-    db.refresh(sec)
+        db.commit()
+        db.refresh(sec)
+    else:
+        db.commit()  # commit the course even for udemy since no sections/lessons to create
+    
+    db.refresh(course)
 
     return course
 
@@ -363,210 +388,239 @@ def completed_lesson_ids_for_user(db: Session, user_id: int, course_id: int) -> 
 
 
 def generate_unique_slug(db, title):
+    """
+    Generates a unique URL slug using an O(1) database I/O pattern.
+    Fetches all matching namespace paths in a single round-trip to compute increments in memory.
+    """
     base = slugify(title)
-    slug = base
-    counter = 1
+    
+    # Fetch all slugs matching the prefix pattern in a single query
+    results = (
+        db.query(models.Course.slug)
+        .filter(models.Course.slug.like(f"{base}%"))
+        .all()
+    )
+    existing_slugs = {r[0] for r in results}
 
-    while db.query(models.Course).filter(models.Course.slug == slug).first():
-        slug = f"{base}-{counter}"
-        counter += 1
+    if base not in existing_slugs:
+        return base
 
-    return slug
+    # Extract maximum numerical suffix using regex pattern matching
+    pattern = re.compile(rf"^{re.escape(base)}-(\d+)$")
+    max_counter = 0
+    
+    for s in existing_slugs:
+        match = pattern.match(s)
+        if match:
+            max_counter = max(max_counter, int(match.group(1)))
+
+    return f"{base}-{max_counter + 1}"
 
 
-
-def _upsert_choice(db: Session, assessment: models.Assessment, choice_in: dict):
-    # choice_in has optional id; create or update
-    if choice_in.get("id"):
-        ch = db.query(models.Choice).get(choice_in["id"])
-        if not ch:
-            # fallback create
-            ch = models.Choice(assessment_id=assessment.id, text=choice_in["text"], is_correct=choice_in.get("is_correct", False), explanation=choice_in.get("explanation"))
-            db.add(ch)
-        else:
+def _upsert_choice(db: Session, assessment_id: int, choice_in: dict) -> models.Choice:
+    ch_id = choice_in.get("id")
+    if ch_id:
+        ch = db.query(models.Choice).get(ch_id)
+        if ch:
             ch.text = choice_in["text"]
             ch.is_correct = choice_in.get("is_correct", False)
             ch.explanation = choice_in.get("explanation")
-    else:
-        ch = models.Choice(assessment_id=assessment.id, text=choice_in["text"], is_correct=choice_in.get("is_correct", False), explanation=choice_in.get("explanation"))
-        db.add(ch)
+            return ch
+
+    ch = models.Choice(
+        assessment_id=assessment_id,
+        text=choice_in["text"],
+        is_correct=choice_in.get("is_correct", False),
+        explanation=choice_in.get("explanation")
+    )
+    db.add(ch)
     db.flush()
     return ch
 
-def _upsert_assessment(db: Session, lesson: models.Lesson, ass_in: dict):
-    if ass_in.get("id"):
-        ass = db.query(models.Assessment).get(ass_in["id"])
-        if not ass:
-            ass = models.Assessment(lesson_id=lesson.id,
-                                    question_markdown=ass_in["question_markdown"],
-                                    image_url=ass_in.get("image_url"),
-                                    max_score=ass_in.get("max_score", 1),
-                                    explanation=ass_in.get("explanation"))
-            db.add(ass)
-            db.flush()
-        else:
+
+def _upsert_assessment(db: Session, lesson_id: int, ass_in: dict, valid_choice_ids: list) -> models.Assessment:
+    ass_id = ass_in.get("id")
+    if ass_id:
+        ass = db.query(models.Assessment).get(ass_id)
+        if ass:
             ass.question_markdown = ass_in["question_markdown"]
             ass.image_url = ass_in.get("image_url")
             ass.max_score = ass_in.get("max_score", 1)
             ass.explanation = ass_in.get("explanation")
+        else:
+            ass = models.Assessment(
+                lesson_id=lesson_id,
+                question_markdown=ass_in["question_markdown"],
+                image_url=ass_in.get("image_url"),
+                max_score=ass_in.get("max_score", 1),
+                explanation=ass_in.get("explanation")
+            )
+            db.add(ass)
+            db.flush()
     else:
-        ass = models.Assessment(lesson_id=lesson.id,
-                                question_markdown=ass_in["question_markdown"],
-                                image_url=ass_in.get("image_url"),
-                                max_score=ass_in.get("max_score", 1),
-                                explanation=ass_in.get("explanation"))
+        ass = models.Assessment(
+            lesson_id=lesson_id,
+            question_markdown=ass_in["question_markdown"],
+            image_url=ass_in.get("image_url"),
+            max_score=ass_in.get("max_score", 1),
+            explanation=ass_in.get("explanation")
+        )
         db.add(ass)
         db.flush()
 
-    # Sync choices: incoming choices are the desired final set. We'll upsert by id and delete any choices not present.
-    incoming_choice_ids = []
     for ch_in in ass_in.get("choices", []):
-        ch = _upsert_choice(db, ass, ch_in)
-        incoming_choice_ids.append(ch.id)
+        ch = _upsert_choice(db, ass.id, ch_in)
+        valid_choice_ids.append(ch.id)
 
-    # delete choices not in incoming set
-    existing_choice_ids = [c.id for c in ass.choices]
-    for rid in existing_choice_ids:
-        if rid not in incoming_choice_ids:
-            db.query(models.Choice).filter_by(id=rid).delete()
-
-    db.flush()
     return ass
 
-def _upsert_lesson(db: Session, section: models.Section, lesson_in: dict):
-    if lesson_in.get("id"):
-        lesson = db.query(models.Lesson).get(lesson_in["id"])
-        if not lesson:
-            lesson = models.Lesson(section_id=section.id,
-                                   title=lesson_in["title"],
-                                   type=lesson_in["type"],
-                                   youtube_url=lesson_in.get("youtube_url"),
-                                   pdf_url=lesson_in.get("pdf_url"),
-                                   order=lesson_in.get("order", 0))
-            db.add(lesson)
-            db.flush()
-        else:
+
+def _upsert_lesson(db: Session, section_id: int, lesson_in: dict, valid_assessment_ids: list, valid_choice_ids: list) -> models.Lesson:
+    l_id = lesson_in.get("id")
+    if l_id:
+        lesson = db.query(models.Lesson).get(l_id)
+        if lesson:
             lesson.title = lesson_in["title"]
             lesson.type = lesson_in["type"]
             lesson.youtube_url = lesson_in.get("youtube_url")
             lesson.pdf_url = lesson_in.get("pdf_url")
             lesson.order = lesson_in.get("order", lesson.order if hasattr(lesson, "order") else 0)
+        else:
+            lesson = models.Lesson(
+                section_id=section_id, title=lesson_in["title"], type=lesson_in["type"],
+                youtube_url=lesson_in.get("youtube_url"), pdf_url=lesson_in.get("pdf_url"), order=lesson_in.get("order", 0)
+            )
+            db.add(lesson)
+            db.flush()
     else:
-        lesson = models.Lesson(section_id=section.id,
-                               title=lesson_in["title"],
-                               type=lesson_in["type"],
-                               youtube_url=lesson_in.get("youtube_url"),
-                               pdf_url=lesson_in.get("pdf_url"),
-                               order=lesson_in.get("order", 0))
+        lesson = models.Lesson(
+            section_id=section_id, title=lesson_in["title"], type=lesson_in["type"],
+            youtube_url=lesson_in.get("youtube_url"), pdf_url=lesson_in.get("pdf_url"), order=lesson_in.get("order", 0)
+        )
         db.add(lesson)
         db.flush()
 
-    # Sync assessments
-    incoming_assessment_ids = []
     for ass_in in lesson_in.get("assessments", []):
-        ass = _upsert_assessment(db, lesson, ass_in)
-        incoming_assessment_ids.append(ass.id)
+        ass = _upsert_assessment(db, lesson.id, ass_in, valid_choice_ids)
+        valid_assessment_ids.append(ass.id)
 
-    # delete assessments not in incoming set
-    existing_ass_ids = [a.id for a in lesson.assessments]
-    for rid in existing_ass_ids:
-        if rid not in incoming_assessment_ids:
-            # delete related student attempts/answers first (safe cleanup)
-            db.query(models.StudentAnswer).filter(models.StudentAnswer.choice_id.in_(
-                db.query(models.Choice.id).filter(models.Choice.assessment_id == rid)
-            )).delete(synchronize_session=False)
-            db.query(models.AssessmentAttempt).filter_by(assessment_id=rid).delete()
-            db.query(models.Choice).filter_by(assessment_id=rid).delete()
-            db.query(models.Assessment).filter_by(id=rid).delete()
-
-    db.flush()
     return lesson
 
-def _upsert_section(db: Session, course: models.Course, section_in: dict):
-    if section_in.get("id"):
-        sec = db.query(models.Section).get(section_in["id"])
-        if not sec:
-            sec = models.Section(course_id=course.id, title=section_in["title"], order=section_in.get("order", 0))
-            db.add(sec)
-            db.flush()
-        else:
+
+def _upsert_section(db: Session, course_id: int, section_in: dict, valid_lesson_ids: list, valid_assessment_ids: list, valid_choice_ids: list) -> models.Section:
+    sec_id = section_in.get("id")
+    if sec_id:
+        sec = db.query(models.Section).get(sec_id)
+        if sec:
             sec.title = section_in["title"]
             sec.order = section_in.get("order", sec.order if hasattr(sec, "order") else 0)
+        else:
+            sec = models.Section(course_id=course_id, title=section_in["title"], order=section_in.get("order", 0))
+            db.add(sec)
+            db.flush()
     else:
-        sec = models.Section(course_id=course.id, title=section_in["title"], order=section_in.get("order", 0))
+        sec = models.Section(course_id=course_id, title=section_in["title"], order=section_in.get("order", 0))
         db.add(sec)
         db.flush()
 
-    incoming_lesson_ids = []
     for lesson_in in section_in.get("lessons", []):
-        l = _upsert_lesson(db, sec, lesson_in)
-        incoming_lesson_ids.append(l.id)
+        l = _upsert_lesson(db, sec.id, lesson_in, valid_assessment_ids, valid_choice_ids)
+        valid_lesson_ids.append(l.id)
 
-    # delete lessons not in incoming set (and cascade delete assessments/attempts)
-    existing_lesson_ids = [l.id for l in sec.lessons]
-    for rid in existing_lesson_ids:
-        if rid not in incoming_lesson_ids:
-            # delete student lesson completions
-            db.query(models.StudentLesson).filter_by(lesson_id=rid).delete()
-            # delete assessments under lesson (handled in _upsert_lesson when removing assessments)
-            db.query(models.Lesson).filter_by(id=rid).delete()
-
-    db.flush()
     return sec
 
 
-# ---------- Top-level course updater ----------
+# ─── MAIN TRANSACTION ENTRIES & CORE BULK PURGE PIPELINE ───
+
 def update_course_full(db: Session, course_id: int, course_in: dict, educator_id: int):
     """
-    course_in: dict representation (matching CourseCreate/CourseUpdate schema)
-    This function synchronizes DB to reflect course_in. Atomic.
+    Main entry point for atomic full course configuration tree synchronization.
     """
     course = db.query(models.Course).get(course_id)
     if not course:
         return None
 
-    # ensure educator owns the course
     if course.educator_id != educator_id:
         raise PermissionError("Not allowed. You are not the educator of this course.")
 
-    # Begin transaction for atomicity
-    with db.begin():
-        # Update course meta
+    # Tracking arrays to identify records present in the incoming payload
+    valid_section_ids = []
+    valid_lesson_ids = []
+    valid_assessment_ids = []
+    valid_choice_ids = []
+
+    try:
+        # Update course metadata root
         course.title = course_in.get("title", course.title)
         course.slug = course_in.get("slug", course.slug)
         course.description = course_in.get("description", course.description)
         course.is_udemy = course_in.get("is_udemy", course.is_udemy)
         course.udemy_url = course_in.get("udemy_url", course.udemy_url)
-
-        # Sync sections
-        incoming_section_ids = []
-        for sec_in in course_in.get("sections", []):
-            sec = _upsert_section(db, course, sec_in)
-            incoming_section_ids.append(sec.id)
-
-        # delete sections not in incoming set
-        existing_section_ids = [s.id for s in course.sections]
-        for rid in existing_section_ids:
-            if rid not in incoming_section_ids:
-                # delete lessons & assessments recursively
-                # delete student progress for lessons in this section
-                lesson_ids = [l.id for l in db.query(models.Lesson).filter_by(section_id=rid).all()]
-                for lid in lesson_ids:
-                    db.query(models.StudentLesson).filter_by(lesson_id=lid).delete()
-                    # delete attempts and choices and assessments
-                    ass_ids = [a.id for a in db.query(models.Assessment).filter_by(lesson_id=lid).all()]
-                    for aid in ass_ids:
-                        db.query(models.StudentAnswer).filter_by(attempt_id=aid).delete()
-                    db.query(models.AssessmentAttempt).filter(models.AssessmentAttempt.assessment_id.in_(ass_ids)).delete()
-                    db.query(models.Choice).filter(models.Choice.assessment_id.in_(ass_ids)).delete()
-                    db.query(models.Assessment).filter_by(lesson_id=lid).delete()
-                db.query(models.Lesson).filter_by(section_id=rid).delete()
-                db.query(models.Section).filter_by(id=rid).delete()
-
         db.flush()
 
-    # Refresh and return full course detail
-    db.refresh(course)
+        # Step 1: Top-down mapping and upsert parsing
+        for sec_in in course_in.get("sections", []):
+            sec = _upsert_section(db, course.id, sec_in, valid_lesson_ids, valid_assessment_ids, valid_choice_ids)
+            valid_section_ids.append(sec.id)
+
+        # Step 2: Discover baseline state currently committed in the DB
+        all_current_sections = db.query(models.Section).filter_by(course_id=course.id).all()
+        current_section_ids = [s.id for s in all_current_sections]
+
+        if current_section_ids:
+            all_current_lessons = db.query(models.Lesson).filter(models.Lesson.section_id.in_(current_section_ids)).all()
+            current_lesson_ids = [l.id for l in all_current_lessons]
+
+            if current_lesson_ids:
+                all_current_assessments = db.query(models.Assessment).filter(models.Assessment.lesson_id.in_(current_lesson_ids)).all()
+                current_assessment_ids = [a.id for a in all_current_assessments]
+
+                # ─── UNIFIED BOTTOM-UP BATCH DELETION ───
+                
+                # A. Identify and drop omitted choices and user answers from modified assessments
+                assessments_to_delete_ids = [aid for aid in current_assessment_ids if aid not in valid_assessment_ids]
+                
+                if assessments_to_delete_ids:
+                    # Clear out downstream student dependencies safely
+                    attempts = db.query(models.AssessmentAttempt).filter(models.AssessmentAttempt.assessment_id.in_(assessments_to_delete_ids)).all()
+                    attempt_ids = [att.id for att in attempts]
+                    
+                    if attempt_ids:
+                        db.query(models.StudentAnswer).filter(models.StudentAnswer.attempt_id.in_(attempt_ids)).delete(synchronize_session=False)
+                        db.query(models.AssessmentAttempt).filter(models.AssessmentAttempt.id.in_(attempt_ids)).delete(synchronize_session=False)
+
+                    db.query(models.Choice).filter(models.Choice.assessment_id.in_(assessments_to_delete_ids)).delete(synchronize_session=False)
+                    db.query(models.Assessment).filter(models.Assessment.id.in_(assessments_to_delete_ids)).delete(synchronize_session=False)
+
+                # Purge single modified choices within assessments that were kept
+                if current_assessment_ids:
+                    choices_to_delete_q = db.query(models.Choice).filter(models.Choice.assessment_id.in_(current_assessment_ids))
+                    if valid_choice_ids:
+                        choices_to_delete_q = choices_to_delete_q.filter(~models.Choice.id.in_(valid_choice_ids))
+                    choices_to_delete_q.delete(synchronize_session=False)
+
+            # B. Identify and drop omitted lessons and tracking records
+            lessons_to_delete_ids = [lid for lid in current_lesson_ids if lid not in valid_lesson_ids]
+            if lessons_to_delete_ids:
+                db.query(models.StudentLesson).filter(models.StudentLesson.lesson_id.in_(lessons_to_delete_ids)).delete(synchronize_session=False)
+                db.query(models.Lesson).filter(models.Lesson.id.in_(lessons_to_delete_ids)).delete(synchronize_session=False)
+
+        # C. Identify and drop omitted sections
+        sections_to_delete_ids = [sid for sid in current_section_ids if sid not in valid_section_ids]
+        if sections_to_delete_ids:
+            db.query(models.Section).filter(models.Section.id.in_(sections_to_delete_ids)).delete(synchronize_session=False)
+
+        # Step 3: Atomic commit boundary savepoint
+        db.commit()
+        db.refresh(course)
+        
+    except Exception as e:
+        db.rollback()
+        logger.critical(f"Aborting full transaction sync on course ID {course_id} due to an unexpected error: {str(e)}", exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to synchronize structural course changes cleanly."
+        )
     return get_course_by_id_internal(db, course_id)  # returns joined load nested object
 
 def create_default_section(db: Session, course_id: int, title: str = "Section 1"):
@@ -609,13 +663,16 @@ def create_lesson_simple(db: Session, course_id: int, lesson_in: dict):
     db.flush()
 
     # Optional: create assessments if provided (use your existing _upsert_assessment or create_assessment)
+    # Fixed signature call with empty state trackers to prevent type crashes
+    dummy_choice_tracker = []
     for ass_in in lesson_in.get("assessments", []):
         # Use your existing upsert helper if it is accessible here
         # If the helper is private (prefixed with _), you can call it:
-        ass = _upsert_assessment(db, lesson, ass_in)  # reuse existing helper
+        _upsert_assessment(db, lesson, ass_in, dummy_choice_tracker)  # reuse existing helper
         # _upsert_assessment flushes and returns the assessment
 
-    db.flush()
+    db.commit()
+    db.refresh(lesson)
     return lesson
 
 def delete_lesson_simple(db: Session, lesson_id: int):
@@ -714,13 +771,17 @@ def update_course_structure(db, course_id, sections, instructor_id):
             seen_lesson_ids.add(lesson.id)
 
         # delete removed lessons
-        for lid, lesson in existing_lessons.items():
+        for lid in existing_lessons.keys():
             if lid not in seen_lesson_ids:
-                db.delete(lesson)
+                delete_lesson_simple(db, lesson_id=lid)
+                
 
     # delete removed sections
     for sid, section in existing_sections.items():
         if sid not in seen_section_ids:
+            # Clean all child lessons inside the deleted section first
+            for lesson in section.lessons:
+                delete_lesson_simple(db, lesson_id=lesson.id)
             db.delete(section)
 
     db.commit()
@@ -733,6 +794,8 @@ def can_give_feedback(db: Session, user_id: int, course_id: int) -> bool:
         user_id=user_id, course_id=course_id
     ).first()
     return bool(enrollment and enrollment.progress_percent >= 25)
+
+####
 
 def upsert_feedback(db: Session, user_id: int, course_id: int, fb: schemas.FeedbackCreate):
     feedback = db.query(models.CourseFeedback).filter_by(
